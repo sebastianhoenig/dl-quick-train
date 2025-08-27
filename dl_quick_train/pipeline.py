@@ -149,24 +149,48 @@ def run_pipeline(
     log_steps=100,
     verbose=False,
     save_steps=None,
+    custom_model=None,
+    custom_dataset=None,
     **kwargs,
 ):
     mp.set_start_method("spawn", force=True)
-    if use_transformer_lens:
-        model = HookedTransformer.from_pretrained(model_name, device=device)
-        tok = model.tokenizer
+    
+    # Handle custom model and dataset
+    if custom_model is not None:
+        model = custom_model
+        if use_transformer_lens:
+            tok = model.tokenizer
+        else:
+            tok = None
     else:
-        model = LanguageModel(model_name, device_map=device)
-        tok = AutoTokenizer.from_pretrained(model_name, use_fast=True)
-    dataset = load_dataset(dataset_name, split="train")
-    tok.pad_token = tok.eos_token
-    tok.pad_token_id = tok.eos_token_id
-    tok.backend_tokenizer.enable_truncation(max_length=seq_len)
-    tok.backend_tokenizer.enable_padding(
-        length=seq_len, pad_id=tok.pad_token_id, pad_token=tok.pad_token
-    )
+        if use_transformer_lens:
+            model = HookedTransformer.from_pretrained(model_name, device=device)
+            tok = model.tokenizer
+        else:
+            model = LanguageModel(model_name, device_map=device)
+            tok = AutoTokenizer.from_pretrained(model_name, use_fast=True)
+    
+    # Handle custom dataset
+    if custom_dataset is not None:
+        dataset = custom_dataset
+        if tok is not None:
+            tok.pad_token = tok.eos_token
+            tok.pad_token_id = tok.eos_token_id
+            tok.backend_tokenizer.enable_truncation(max_length=seq_len)
+            tok.backend_tokenizer.enable_padding(
+                length=seq_len, pad_id=tok.pad_token_id, pad_token=tok.pad_token
+            )
+    else:
+        dataset = load_dataset(dataset_name, split="train")
+        if tok is not None:
+            tok.pad_token = tok.eos_token
+            tok.pad_token_id = tok.eos_token_id
+            tok.backend_tokenizer.enable_truncation(max_length=seq_len)
+            tok.backend_tokenizer.enable_padding(
+                length=seq_len, pad_id=tok.pad_token_id, pad_token=tok.pad_token
+            )
 
-    if not use_transformer_lens:
+    if not use_transformer_lens and custom_model is None:
         submodule_ref = eval(f"model.{submodule}")
 
     trainers = []
@@ -176,13 +200,16 @@ def run_pipeline(
         trainer.ae = trainer.ae.to(device)
         trainers.append(trainer)
 
-
-    loader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        collate_fn=partial(collate, tok=tok, seq_len=seq_len),
-    )
-    loader = iter(loader)
+    # Handle custom dataset vs standard dataset
+    if custom_dataset is not None:
+        loader = custom_dataset
+    else:
+        loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            collate_fn=partial(collate, tok=tok, seq_len=seq_len),
+        )
+        loader = iter(loader)
 
     log_queues = []
     wandb_processes = []
@@ -224,7 +251,21 @@ def run_pipeline(
 
     stream = torch.cuda.Stream()
     for step in tqdm(range(steps), desc="Training"):
-        batch = next(loader)
+        # Handle custom dataset vs standard dataset
+        if custom_dataset is not None:
+            try:
+                batch = next(loader)
+                if isinstance(batch, (tuple, list)) and len(batch) == 2:
+                    batch, _ = batch  # Extract just the tokens, ignore labels
+            except StopIteration:
+                # Reset iterator for custom dataset
+                loader.iterator = None
+                batch = next(loader)
+                if isinstance(batch, (tuple, list)) and len(batch) == 2:
+                    batch, _ = batch
+        else:
+            batch = next(loader)
+            
         with torch.cuda.stream(stream):
             with torch.no_grad():
                 if use_transformer_lens:
