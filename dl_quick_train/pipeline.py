@@ -198,7 +198,7 @@ def run_pipeline(
     for cfg in trainer_configs:
         cls = cfg.pop("trainer")
         trainer = cls(**cfg)
-        trainer.ae = trainer.ae.to(torch_device)
+        trainer.ae = trainer.ae.to(device)
         trainers.append(trainer)
 
     # Handle custom dataset vs standard dataset

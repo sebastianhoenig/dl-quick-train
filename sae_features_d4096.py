@@ -333,14 +333,11 @@ def extract_sae_features(layer, sae_path, val_loader, device, model):
             cache = model.run_with_cache(toks, names_filter=[act_name])[1]
             acts = cache[act_name]  # shape: [batch, seq, d_model]
             
-            # Select activations for the last token in each sequence
-            acts = acts[:, -1, :]  # shape: [batch, d_model]
-            
             # Extract features
             features = sae.encode(acts)
             reconstruction = sae.decode(features)
             
-            all_features.append(features.cpu())
+            all_features.append(features[:, -1, :].cpu()) # last token feature
             all_activations.append(acts.cpu())
             all_reconstructions.append(reconstruction.cpu())
             all_labels.append(labels.cpu())
@@ -358,7 +355,7 @@ def extract_sae_features(layer, sae_path, val_loader, device, model):
         'labels': all_labels
     }
 
-def analyze_features(features_dict):
+def analyze_features(features_dict, val_loader=None):
     """Analyze extracted SAE features"""
     all_features = features_dict['features']
     all_reconstructions = features_dict['reconstructions']
@@ -373,8 +370,11 @@ def analyze_features(features_dict):
     # Feature activation frequency
     feature_activations = (all_features > 0).float()
     feature_frequency = feature_activations.mean(dim=0)
+    print("feature_frequency", feature_frequency)
+    feature_sum = feature_activations.sum(dim=0)
+    print("feature_sum", feature_sum)
     print(f"\nTop 10 most active features:")
-    top_features = feature_frequency.topk(10)
+    top_features = feature_sum.topk(10)
     for i, (idx, freq) in enumerate(zip(top_features.indices, top_features.values)):
         print(f"  Feature {idx.item()}: {freq.item():.4f}")
     
@@ -382,10 +382,116 @@ def analyze_features(features_dict):
     sparsity_per_sample = (all_features == 0).float().mean(dim=1)
     print(f"\nSparsity per sample - Mean: {sparsity_per_sample.mean():.4f}, Std: {sparsity_per_sample.std():.4f}")
     
+    # Show examples for top features if validation loader is provided
+    if val_loader is not None:
+        print(f"\n=== Examples for Top 10 Features ===")
+        show_feature_examples(all_features, top_features.indices, val_loader)
+    
     return {
         'feature_frequency': feature_frequency,
         'sparsity_per_sample': sparsity_per_sample
     }
+
+def show_feature_examples(all_features, top_feature_indices, val_loader):
+    """Show 10 random examples from validation dataset for each top feature"""
+    
+    # Convert to numpy for easier indexing
+    features_np = all_features.numpy()
+    
+    for feature_idx in top_feature_indices:
+        feature_idx = feature_idx.item()
+        print(f"\n--- Feature {feature_idx} ---")
+        
+        # Find all samples where this feature was activated (value > 0)
+        activated_samples = np.where(features_np[:, feature_idx] > 0)[0]
+        
+        if len(activated_samples) == 0:
+            print("  No activations found for this feature")
+            continue
+            
+        print(f"  Total activations: {len(activated_samples)}")
+        
+        # Calculate activation statistics
+        activation_values = features_np[activated_samples, feature_idx]
+        print(f"  Activation range: {activation_values.min():.4f} to {activation_values.max():.4f}")
+        print(f"  Mean activation: {activation_values.mean():.4f}")
+        
+        # Sample 10 random examples (or all if less than 10)
+        num_examples = min(10, len(activated_samples))
+        if len(activated_samples) > 10:
+            # Randomly sample 10 examples
+            np.random.seed(42)  # For reproducibility
+            sample_indices = np.random.choice(activated_samples, num_examples, replace=False)
+        else:
+            sample_indices = activated_samples[:num_examples]
+        
+        # Get the actual examples from validation dataset
+        val_examples = []
+        val_labels = []
+        
+        # Reset the validation loader and iterate through to get examples
+        val_loader_iter = iter(val_loader)
+        sample_count = 0
+        batch_start_idx = 0
+        
+        for batch_idx, (toks, labels) in enumerate(val_loader):
+            batch_size = toks.size(0)
+            batch_end_idx = batch_start_idx + batch_size
+            
+            # Check if any of our target samples are in this batch
+            batch_sample_indices = []
+            for sample_idx in sample_indices:
+                if batch_start_idx <= sample_idx < batch_end_idx:
+                    batch_sample_indices.append((sample_idx - batch_start_idx, sample_idx))
+            
+            # Extract examples from this batch
+            for batch_sample_idx, global_sample_idx in batch_sample_indices:
+                if sample_count < num_examples:
+                    # Get the sequence and label
+                    seq = toks[batch_sample_idx]
+                    label = labels[batch_sample_idx]
+                    
+                    # Find the position of the query token (Q)
+                    q_pos = (seq == Q).nonzero(as_tuple=False).squeeze()
+                    if q_pos.numel() > 0:
+                        q_pos = q_pos.item()
+                        # Get the sequence up to the query
+                        context_seq = seq[:q_pos]
+                        # Remove padding tokens
+                        context_seq = context_seq[context_seq != PAD]
+                        
+                        # Convert to readable format
+                        readable_seq = []
+                        for token in context_seq:
+                            if token < E:
+                                readable_seq.append(f"E{token.item()}")
+                            elif token < E + T:
+                                readable_seq.append(f"T{token.item() - E}")
+                            elif token == SEP:
+                                readable_seq.append("SEP")
+                            else:
+                                readable_seq.append(f"UNK{token.item()}")
+                        
+                        # Get the query components and answer
+                        query_rel = seq[q_pos - 2].item()  # Relation type (Tq)
+                        query_ent = seq[q_pos - 1].item()  # Entity (Eq)
+                        answer = label[q_pos].item() if label[q_pos] != IGNORE_INDEX else "IGNORE"
+                        
+                        print(f"  Example {sample_count + 1}:")
+                        print(f"    Context: {' '.join(readable_seq)}")
+                        print(f"    Query: T{query_rel - E} E{query_ent} Q")
+                        print(f"    Answer: E{answer}")
+                        print(f"    Feature value: {features_np[global_sample_idx, feature_idx]:.4f}")
+                        
+                        sample_count += 1
+                        
+                        if sample_count >= num_examples:
+                            break
+            
+            if sample_count >= num_examples:
+                break
+                
+            batch_start_idx = batch_end_idx
 
 def main():
     """Main function to run SAE training and feature extraction"""
@@ -454,7 +560,7 @@ def main():
             
             if features_dict is not None:
                 # Analyze features
-                analysis = analyze_features(features_dict)
+                analysis = analyze_features(features_dict, val_loader)
                 
                 # Save features and analysis
                 save_path = f"layer_{layer_to_train}_sae_features_d{SAE_DIM}.pt"
