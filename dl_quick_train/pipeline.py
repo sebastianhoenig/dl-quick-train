@@ -153,7 +153,8 @@ def run_pipeline(
     custom_dataset=None,
     **kwargs,
 ):
-    mp.set_start_method("spawn", force=True)
+    # Temporarily disable multiprocessing to avoid semaphore errors
+    # mp.set_start_method("spawn", force=True)
     
     # Handle custom model and dataset
     if custom_model is not None:
@@ -170,6 +171,12 @@ def run_pipeline(
         else:
             model = LanguageModel(model_name, device_map=device)
             tok = AutoTokenizer.from_pretrained(model_name, use_fast=True)
+    
+    # Convert device string to torch device if needed
+    if isinstance(device, str):
+        torch_device = torch.device(device)
+    else:
+        torch_device = device
     
     # Handle custom dataset
     if custom_dataset is not None:
@@ -198,7 +205,7 @@ def run_pipeline(
     for cfg in trainer_configs:
         cls = cfg.pop("trainer")
         trainer = cls(**cfg)
-        trainer.ae = trainer.ae.to(device)
+        trainer.ae = trainer.ae.to(torch_device)
         trainers.append(trainer)
 
     # Handle custom dataset vs standard dataset
@@ -251,7 +258,7 @@ def run_pipeline(
         save_dirs = [None for _ in trainer_configs]
 
     # Create CUDA stream only if using CUDA
-    if device.type == 'cuda':
+    if torch_device.type == 'cuda':
         stream = torch.cuda.Stream()
     else:
         stream = None
@@ -261,16 +268,21 @@ def run_pipeline(
         if custom_dataset is not None:
             try:
                 batch = next(loader)
-                if isinstance(batch, (tuple, list)) and len(batch) == 2:
+                if batch is not None and isinstance(batch, (tuple, list)) and len(batch) == 2:
                     batch, _ = batch  # Extract just the tokens, ignore labels
             except StopIteration:
                 # Reset iterator for custom dataset
                 loader.iterator = None
                 batch = next(loader)
-                if isinstance(batch, (tuple, list)) and len(batch) == 2:
+                if batch is not None and isinstance(batch, (tuple, list)) and len(batch) == 2:
                     batch, _ = batch
         else:
             batch = next(loader)
+            
+        # Check if batch is None
+        if batch is None:
+            print(f"Warning: Got None batch at step {step}, skipping...")
+            continue
             
         # Debug: Print batch info for first few steps
         if step < 3:
@@ -285,10 +297,10 @@ def run_pipeline(
                     if use_transformer_lens:
                         # Debug: Check device before and after moving to device
                         if step < 3:
-                            print(f"Step {step}: Moving batch to device {device}")
+                            print(f"Step {step}: Moving batch to device {torch_device}")
                             print(f"Step {step}: Batch device before: {batch.device if hasattr(batch, 'device') else 'N/A'}")
                         
-                        batch_device = batch.to(device)
+                        batch_device = batch.to(torch_device)
                         
                         if step < 3:
                             print(f"Step {step}: Batch device after: {batch_device.device if hasattr(batch_device, 'device') else 'N/A'}")
@@ -306,7 +318,7 @@ def run_pipeline(
                             print(f"Step {step}: Activation shape: {act.shape}")
                     else:
                         with model.trace(
-                            batch.to(device), invoker_args={"max_length": seq_len}
+                            batch.to(torch_device), invoker_args={"max_length": seq_len}
                         ):
                             h = submodule_ref.output.save()
                             submodule_ref.output.stop()
@@ -316,10 +328,10 @@ def run_pipeline(
                 if use_transformer_lens:
                     # Debug: Check device before and after moving to device
                     if step < 3:
-                        print(f"Step {step}: Moving batch to device {device}")
+                        print(f"Step {step}: Moving batch to device {torch_device}")
                         print(f"Step {step}: Batch device before: {batch.device if hasattr(batch, 'device') else 'N/A'}")
                     
-                    batch_device = batch.to(device)
+                    batch_device = batch.to(torch_device)
                     
                     if step < 3:
                         print(f"Step {step}: Batch device after: {batch_device.device if hasattr(batch_device, 'device') else 'N/A'}")
@@ -337,7 +349,7 @@ def run_pipeline(
                         print(f"Step {step}: Activation shape: {act.shape}")
                 else:
                     with model.trace(
-                        batch.to(device), invoker_args={"max_length": seq_len}
+                        batch.to(torch_device), invoker_args={"max_length": seq_len}
                     ):
                         h = submodule_ref.output.save()
                         submodule_ref.output.stop()
@@ -364,6 +376,7 @@ def run_pipeline(
                         k: v.cpu() for k, v in trainer.ae.state_dict().items()
                     }
                     path = os.path.join(trainer_dir, "checkpoints", f"ae_{step}.pt")
+                    print(f"Saving checkpoint to {path}")
                     torch.save(
                         checkpoint,
                         path,

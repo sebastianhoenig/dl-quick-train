@@ -4,9 +4,6 @@ SAE_DIM = 4096
 
 # Available trainer types:
 # - StandardTrainer: Standard SAE trainer with L1 penalty
-# - TopKTrainer: Top-K sparsity trainer (keeps top k features)
-# - BatchTopKTrainer: Batch-wise top-K sparsity trainer
-# - JumpReluTrainer: Jump ReLU trainer with threshold-based sparsity
 # - GatedSAETrainer: Gated SAE trainer
 # - GatedAnnealTrainer: Gated SAE with annealing
 # - PAnnealTrainer: P-annealing trainer
@@ -25,9 +22,6 @@ import json
 from huggingface_hub import hf_hub_download
 from dl_quick_train.pipeline import run_pipeline
 from dictionary_learning.trainers.standard import StandardTrainer
-from dictionary_learning.trainers.top_k import TopKTrainer
-from dictionary_learning.trainers.batch_top_k import BatchTopKTrainer
-from dictionary_learning.trainers.jumprelu import JumpReluTrainer
 from dictionary_learning.trainers import GatedSAETrainer, GatedAnnealTrainer, PAnnealTrainer
 from dictionary_learning import AutoEncoder, utils
 
@@ -117,7 +111,8 @@ class ValDataset(torch.utils.data.Dataset):
     def __len__(self): return VAL_SIZE
     def __getitem__(self, i):
         seq, label = produce_example_by_index(i)
-        return torch.tensor(seq, dtype=torch.long), torch.tensor(label, dtype=torch.long)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        return torch.tensor(seq, dtype=torch.long, device=device), torch.tensor(label, dtype=torch.long, device=device)
 
 
 class TrainStream(torch.utils.data.IterableDataset):
@@ -135,12 +130,13 @@ class TrainStream(torch.utils.data.IterableDataset):
         # compute which block to serve this epoch, with wrap-around
         start_in_train = (self._epoch * self.block_size) % self.size
         # stream exactly block_size samples each epoch
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         for i in range(self.block_size):
             local_idx = (start_in_train + i) % self.size
             global_idx = self.offset + local_idx
             seq, label = produce_example_by_index(global_idx)
-            x = torch.tensor(seq, dtype=torch.long)
-            y = torch.tensor(label, dtype=torch.long)
+            x = torch.tensor(seq, dtype=torch.long, device=device)
+            y = torch.tensor(label, dtype=torch.long, device=device)
             yield x, y
 
     def __len__(self):
@@ -202,9 +198,6 @@ def create_sae_trainer_configs(layers_to_train, sae_dim=SAE_DIM, device="cuda", 
     # Trainer class mapping
     trainer_classes = {
         "StandardTrainer": StandardTrainer,
-        "TopKTrainer": TopKTrainer,
-        "BatchTopKTrainer": BatchTopKTrainer,
-        "JumpReluTrainer": JumpReluTrainer,
         "GatedSAETrainer": GatedSAETrainer,
         "GatedAnnealTrainer": GatedAnnealTrainer,
         "PAnnealTrainer": PAnnealTrainer,
@@ -218,30 +211,6 @@ def create_sae_trainer_configs(layers_to_train, sae_dim=SAE_DIM, device="cuda", 
             "warmup_steps": 1000,
             "sparsity_warmup_steps": 2000,
         },
-        # "TopKTrainer": {
-        #     "lr": 1e-4,
-        #     "k": 100,
-        #     "warmup_steps": 1000,
-        #     "auxk_alpha": 0.03125,
-        #     "threshold_beta": 0.999,
-        #     "threshold_start_step": 1000,
-        # },
-        # "BatchTopKTrainer": {
-        #     "lr": 1e-4,
-        #     "k": 100,
-        #     "warmup_steps": 1000,
-        #     "auxk_alpha": 0.03125,
-        #     "threshold_beta": 0.999,
-        #     "threshold_start_step": 1000,
-        # },
-        # "JumpReluTrainer": {
-        #     "lr": 7e-5,
-        #     "bandwidth": 0.001,
-        #     "sparsity_penalty": 1.0,
-        #     "warmup_steps": 1000,
-        #     "sparsity_warmup_steps": 2000,
-        #     "target_l0": 20.0,
-        # },
         "GatedSAETrainer": {
             "lr": 1e-4,
             "warmup_steps": 1000,
@@ -270,7 +239,7 @@ def create_sae_trainer_configs(layers_to_train, sae_dim=SAE_DIM, device="cuda", 
             # Start with base configuration
             config = {
                 "trainer": trainer_class,
-                "steps": 80_000,
+                "steps": 100_000,
                 "activation_dim": 256,  # d_model
                 "dict_size": sae_dim,
                 "layer": layer,
@@ -294,27 +263,18 @@ def create_preset_configs(preset_name="balanced"):
     presets = {
         "balanced": {
             "StandardTrainer": {"lr": 1e-4, "l1_penalty": 1e-1},
-            # "TopKTrainer": {"lr": 1e-4, "k": 100},  # Commented out due to compatibility issues
-            # "BatchTopKTrainer": {"lr": 1e-4, "k": 100},  # Commented out due to compatibility issues
-            # "JumpReluTrainer": {"lr": 7e-5, "target_l0": 20.0},  # Commented out due to compatibility issues
             "GatedSAETrainer": {"lr": 1e-4},
             "GatedAnnealTrainer": {"lr": 1e-4},
             "PAnnealTrainer": {"lr": 1e-4}
         },
         "aggressive": {
             "StandardTrainer": {"lr": 5e-4, "l1_penalty": 5e-1},
-            # "TopKTrainer": {"lr": 5e-4, "k": 50},  # Commented out due to compatibility issues
-            # "BatchTopKTrainer": {"lr": 5e-4, "k": 50},  # Commented out due to compatibility issues
-            # "JumpReluTrainer": {"lr": 1e-4, "target_l0": 10.0},  # Commented out due to compatibility issues
             "GatedSAETrainer": {"lr": 5e-4},
             "GatedAnnealTrainer": {"lr": 5e-4},
             "PAnnealTrainer": {"lr": 5e-4}
         },
         "conservative": {
             "StandardTrainer": {"lr": 5e-5, "l1_penalty": 5e-2},
-            # "TopKTrainer": {"lr": 5e-5, "k": 200},  # Commented out due to compatibility issues
-            # "BatchTopKTrainer": {"lr": 5e-5, "k": 200},  # Commented out due to compatibility issues
-            # "JumpReluTrainer": {"lr": 5e-5, "target_l0": 40.0},  # Commented out due to compatibility issues
             "GatedSAETrainer": {"lr": 5e-5},
             "GatedAnnealTrainer": {"lr": 5e-5},
             "PAnnealTrainer": {"lr": 5e-5}
@@ -388,22 +348,6 @@ def compare_trainer_configs(configs):
                 if 'l1_penalty' in config:
                     specific_params.append(f"l1_penalty={config['l1_penalty']}")
                 
-                # TopK and BatchTopK parameters
-                if 'k' in config:
-                    specific_params.append(f"k={config['k']}")
-                if 'auxk_alpha' in config:
-                    specific_params.append(f"auxk_alpha={config['auxk_alpha']}")
-                if 'threshold_beta' in config:
-                    specific_params.append(f"threshold_beta={config['threshold_beta']}")
-                
-                # JumpRelu parameters
-                if 'target_l0' in config:
-                    specific_params.append(f"target_l0={config['target_l0']}")
-                if 'bandwidth' in config:
-                    specific_params.append(f"bandwidth={config['bandwidth']}")
-                if 'sparsity_penalty' in config:
-                    specific_params.append(f"sparsity_penalty={config['sparsity_penalty']}")
-                
                 # Common parameters
                 if 'warmup_steps' in config:
                     specific_params.append(f"warmup_steps={config['warmup_steps']}")
@@ -416,38 +360,32 @@ def compare_trainer_configs(configs):
                 print(f"  {config}")
         print()
 
-def create_custom_trainer_configs():
-    """Example function showing how to create custom trainer configurations"""
-    # Example: Different configurations for different trainer types
-    custom_configs = {
-        "StandardTrainer": {
-            "lr": 1e-4,
-            "l1_penalty": 1e-1,
-            "warmup_steps": 1000,
-            "sparsity_warmup_steps": 2000,
-        },
-        "TopKTrainer": {
-            "lr": 5e-5,
-            "k": 50,  # Keep top 50 features
-            "warmup_steps": 500,
-            "sparsity_warmup_steps": 1000,
-        },
-        "BatchTopKTrainer": {
-            "lr": 5e-5,
-            "k": 75,  # Keep top 75 features per batch
-            "batch_k": True,
-            "warmup_steps": 500,
-            "sparsity_warmup_steps": 1000,
-        },
-        "JumpReluTrainer": {
-            "lr": 1e-4,
-            "jump_relu": True,
-            "jump_threshold": 0.05,  # Lower threshold for more sparsity
-            "warmup_steps": 1000,
-            "sparsity_warmup_steps": 2000,
-        }
-    }
-    return custom_configs
+# Create custom dataset wrapper for run_pipeline
+class CustomDatasetWrapper:
+    def __init__(self, dataset, collate_fn, batch_size=64):
+        self.dataset = dataset
+        self.collate_fn = collate_fn
+        self.batch_size = batch_size
+        self.iterator = None
+        
+    def __iter__(self):
+        if self.iterator is None:
+            self.iterator = iter(DataLoader(self.dataset, batch_size=self.batch_size, collate_fn=self.collate_fn))
+        return self.iterator
+    
+    def __len__(self):
+        return len(self.dataset)
+    
+    def __next__(self):
+        if self.iterator is None:
+            self.iterator = iter(DataLoader(self.dataset, batch_size=self.batch_size, collate_fn=self.collate_fn))
+        try:
+            return next(self.iterator)
+        except StopIteration:
+            # Reset iterator for next epoch
+            self.iterator = None
+            self.iterator = iter(DataLoader(self.dataset, batch_size=self.batch_size, collate_fn=self.collate_fn))
+            return next(self.iterator)
 
 def train_saes_with_pipeline(layers_to_train=[1], sae_dim=SAE_DIM, use_wandb=True, trainer_types=None, custom_params=None):
     """Train multiple SAEs using run_pipeline with different trainer types"""
@@ -458,15 +396,6 @@ def train_saes_with_pipeline(layers_to_train=[1], sae_dim=SAE_DIM, use_wandb=Tru
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = model.to(device)
         print(f"Moving model to device: {device}")
-        
-        # Verify GPU usage
-        if device.type == 'cuda':
-            print(f"GPU memory allocated: {torch.cuda.memory_allocated(device) / 1024**2:.2f} MB")
-            print(f"GPU memory cached: {torch.cuda.memory_reserved(device) / 1024**2:.2f} MB")
-            # Test if model is actually on GPU
-            test_tensor = torch.randn(1, 256).to(device)
-            print(f"Test tensor device: {test_tensor.device}")
-            print(f"Model parameters device: {next(model.parameters()).device}")
         
         # Load pretrained weights
         REPO_ID = "sebastianhoenig/2L2H_Final"
@@ -481,47 +410,9 @@ def train_saes_with_pipeline(layers_to_train=[1], sae_dim=SAE_DIM, use_wandb=Tru
         trainer_configs = create_sae_trainer_configs(layers_to_train, sae_dim, device, trainer_types, custom_params)
         print(f"Created {len(trainer_configs)} trainer configurations")
         
-        # Create custom dataset wrapper for run_pipeline
-        class CustomDatasetWrapper:
-            def __init__(self, dataset, collate_fn, batch_size=64):
-                self.dataset = dataset
-                self.collate_fn = collate_fn
-                self.batch_size = batch_size
-                self.iterator = None
-                
-            def __iter__(self):
-                if self.iterator is None:
-                    self.iterator = iter(DataLoader(self.dataset, batch_size=self.batch_size, collate_fn=self.collate_fn))
-                return self.iterator
-            
-            def __len__(self):
-                return len(self.dataset)
-            
-            def __next__(self):
-                if self.iterator is None:
-                    self.iterator = iter(DataLoader(self.dataset, batch_size=self.batch_size, collate_fn=self.collate_fn))
-                try:
-                    return next(self.iterator)
-                except StopIteration:
-                    # Reset iterator for next epoch
-                    self.iterator = None
-                    self.iterator = iter(DataLoader(self.dataset, batch_size=self.batch_size, collate_fn=self.collate_fn))
-                    return next(self.iterator)
-        
         # Wrap our custom dataset
         wrapped_dataset = CustomDatasetWrapper(train_dataset, collate_fn, batch_size=64)
-        
-        # Test the dataset to make sure it produces tensors
-        print("Testing custom dataset...")
-        test_batch = next(iter(wrapped_dataset))
-        print(f"Test batch type: {type(test_batch)}")
-        if isinstance(test_batch, (tuple, list)):
-            print(f"Test batch length: {len(test_batch)}")
-            print(f"Test batch[0] type: {type(test_batch[0])}")
-            print(f"Test batch[0] device: {test_batch[0].device if hasattr(test_batch[0], 'device') else 'N/A'}")
-        else:
-            print(f"Test batch device: {test_batch.device if hasattr(test_batch, 'device') else 'N/A'}")
-        
+
         print("Starting pipeline training...")
         print(f"Pipeline device: {device}")
         print(f"Model device: {next(model.parameters()).device}")
@@ -529,26 +420,30 @@ def train_saes_with_pipeline(layers_to_train=[1], sae_dim=SAE_DIM, use_wandb=Tru
         # Test GPU memory before training
         if device.type == 'cuda':
             print(f"GPU memory before training: {torch.cuda.memory_allocated(device) / 1024**2:.2f} MB")
-        
+        # Define submodule based on the layer to train
+        # For transformer_lens, submodules are typically like 'blocks.{layer}.hook_mlp_out' or similar
+        # Here, we assume MLP output hook for each layer
+        submodule = f"blocks.{layers_to_train[0]}.hook_resid_post"
+        print(f"Using submodule: {submodule}")
         # Run pipeline
         try:
             run_ids = run_pipeline(
                 trainer_configs,
-                device=device,  # Pass the actual device object, not a string
+                device=str(device),  # Convert device object to string for pipeline compatibility
                 model_name="custom",  # We'll use our custom model
-                submodule="blocks.1.hook_resid_post",  # Default submodule
                 dataset_name="custom",
-                steps=80_000,  # Reduced for testing
+                submodule=submodule,  # Add the missing submodule parameter
+                steps=10_000,  # Reduced for testing
                 batch_size=64,
                 seq_len=64,
-                use_wandb=use_wandb,
+                use_wandb=False,  # Disable wandb to avoid multiprocessing issues
                 use_transformer_lens=True,
                 wandb_entity="iamsusie-columbia-university",  # Replace with your entity
                 wandb_project="sae_lens_training",
                 save_dir="./sae_checkpoints",
                 log_steps=500,
                 verbose=True,
-                save_steps=[40_000, 60_000, 80_000],  # Save checkpoints at these steps
+                save_steps=[5_000, 10_000],  # Save checkpoints at these steps
                 custom_model=model,  # Pass our custom model
                 custom_dataset=wrapped_dataset
             )
@@ -661,7 +556,7 @@ def analyze_features(features_dict):
         'sparsity_per_sample': sparsity_per_sample
     }
 
-def main(val_loader=None):
+def main():
     """Main function to run SAE training and feature extraction"""
     
     try:
@@ -673,10 +568,8 @@ def main(val_loader=None):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Main function using device: {device}")
         
-        # Create val_loader if not provided
-        if val_loader is None:
-            val_loader = DataLoader(val_dataset, batch_size=64, collate_fn=collate_fn)
-            print("Created val_loader in main function")
+        val_loader = DataLoader(val_dataset, batch_size=64, collate_fn=collate_fn)
+        print("Created val_loader in main function")
         
         if device.type == 'cuda':
             print(f"GPU memory before main: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
@@ -684,9 +577,6 @@ def main(val_loader=None):
         # Choose which trainer types to use - removing problematic trainers due to compatibility issues
         trainer_types = [
             "StandardTrainer",
-            # "TopKTrainer",  # Commented out due to tensor dimension issues
-            # "BatchTopKTrainer",  # Commented out due to tensor dimension issues
-            # "JumpReluTrainer",  # Commented out due to tensor dimension issues
             "GatedSAETrainer",
             "GatedAnnealTrainer",
             "PAnnealTrainer"
@@ -714,6 +604,31 @@ def main(val_loader=None):
             print(f"Training completed! Run IDs: {run_ids}")
         else:
             print("Training completed but no run IDs returned")
+        
+        # Verify that checkpoints were created
+        print("\nVerifying checkpoint creation...")
+        for i, layer in enumerate(layers_to_train):
+            checkpoint_dir = f"./sae_checkpoints/trainer_{i}/checkpoints/"
+            if os.path.exists(checkpoint_dir):
+                checkpoints = [f for f in os.listdir(checkpoint_dir) if f.endswith('.pt')]
+                print(f"Layer {layer} (trainer_{i}): Found {len(checkpoints)} checkpoints: {checkpoints}")
+            else:
+                print(f"Layer {layer} (trainer_{i}): No checkpoints directory found")
+        
+        # Check if any checkpoints exist at all
+        all_checkpoints = []
+        for i in range(len(trainer_configs)):
+            checkpoint_dir = f"./sae_checkpoints/trainer_{i}/checkpoints/"
+            if os.path.exists(checkpoint_dir):
+                checkpoints = [f for f in os.listdir(checkpoint_dir) if f.endswith('.pt')]
+                all_checkpoints.extend([(i, f) for f in checkpoints])
+        
+        if not all_checkpoints:
+            print("\n⚠️  WARNING: No checkpoints were created during training!")
+            print("This suggests the training failed or was interrupted before reaching the first save step (40,000)")
+            print("Check for errors in the training output above.")
+        else:
+            print(f"\n✅ Successfully created {len(all_checkpoints)} checkpoints during training")
     
         # Debug: Print what trainer_configs contains
         print(f"\nDebug: trainer_configs type: {type(trainer_configs)}")
@@ -740,12 +655,21 @@ def main(val_loader=None):
             for i, layer in enumerate(layers_to_train):
                 print(f"\nExtracting features for layer {layer}...")
                 
-                # Path to saved SAE
-                sae_path = f"./sae_checkpoints/trainer_{i}/checkpoints/ae_10000000.pt"
-                
-                # Check if SAE file exists
-                if not os.path.exists(sae_path):
-                    print(f"Warning: SAE file not found at {sae_path}, skipping feature extraction for layer {layer}")
+                # Look for any available checkpoint
+                checkpoint_dir = f"./sae_checkpoints/trainer_{i}/checkpoints/"
+                if os.path.exists(checkpoint_dir):
+                    checkpoints = [f for f in os.listdir(checkpoint_dir) if f.endswith('.pt')]
+                    if checkpoints:
+                        # Use the latest checkpoint (highest step number)
+                        checkpoints.sort(key=lambda x: int(x.split('_')[1].split('.')[0]))
+                        latest_checkpoint = checkpoints[-1]
+                        sae_path = os.path.join(checkpoint_dir, latest_checkpoint)
+                        print(f"Using checkpoint: {latest_checkpoint}")
+                    else:
+                        print(f"Warning: No checkpoints found in {checkpoint_dir}, skipping feature extraction for layer {layer}")
+                        continue
+                else:
+                    print(f"Warning: Checkpoint directory not found: {checkpoint_dir}, skipping feature extraction for layer {layer}")
                     continue
                 
                 # Extract features
@@ -814,12 +738,8 @@ if __name__ == "__main__":
             os.environ['CUDA_VISIBLE_DEVICES'] = '0'
             os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
             print("Set CUDA environment variables")
-        
-        # Create validation data loader
-        val_loader = DataLoader(val_dataset, batch_size=64, collate_fn=collate_fn)
-        
         # Run main function with device and val_loader
-        main(val_loader)
+        main()
     except Exception as e:
         print(f"Error in main execution: {e}")
         import traceback
