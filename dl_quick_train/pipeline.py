@@ -158,6 +158,7 @@ def run_pipeline(
     # Handle custom model and dataset
     if custom_model is not None:
         model = custom_model
+        print(f"Using custom model on device: {next(model.parameters()).device}")
         if use_transformer_lens:
             tok = model.tokenizer
         else:
@@ -249,7 +250,12 @@ def run_pipeline(
     else:
         save_dirs = [None for _ in trainer_configs]
 
-    stream = torch.cuda.Stream()
+    # Create CUDA stream only if using CUDA
+    if device.type == 'cuda':
+        stream = torch.cuda.Stream()
+    else:
+        stream = None
+        
     for step in tqdm(range(steps), desc="Training"):
         # Handle custom dataset vs standard dataset
         if custom_dataset is not None:
@@ -266,15 +272,69 @@ def run_pipeline(
         else:
             batch = next(loader)
             
-        with torch.cuda.stream(stream):
+        # Debug: Print batch info for first few steps
+        if step < 3:
+            print(f"Step {step}: Batch type: {type(batch)}, Batch device: {batch.device if hasattr(batch, 'device') else 'N/A'}")
+            if isinstance(batch, (tuple, list)):
+                print(f"Step {step}: Batch[0] device: {batch[0].device if hasattr(batch[0], 'device') else 'N/A'}")
+            
+        # Use CUDA stream if available, otherwise no stream
+        if stream is not None:
+            with torch.cuda.stream(stream):
+                with torch.no_grad():
+                    if use_transformer_lens:
+                        # Debug: Check device before and after moving to device
+                        if step < 3:
+                            print(f"Step {step}: Moving batch to device {device}")
+                            print(f"Step {step}: Batch device before: {batch.device if hasattr(batch, 'device') else 'N/A'}")
+                        
+                        batch_device = batch.to(device)
+                        
+                        if step < 3:
+                            print(f"Step {step}: Batch device after: {batch_device.device if hasattr(batch_device, 'device') else 'N/A'}")
+                        
+                        _, cache = model.run_with_cache(
+                            batch_device,
+                            names_filter=[submodule],
+                            stop_at_layer=stop_at_layer,
+                        )
+                        act = cache[submodule]
+                        
+                        # Debug: Check activation device
+                        if step < 3:
+                            print(f"Step {step}: Activation device: {act.device}")
+                            print(f"Step {step}: Activation shape: {act.shape}")
+                    else:
+                        with model.trace(
+                            batch.to(device), invoker_args={"max_length": seq_len}
+                        ):
+                            h = submodule_ref.output.save()
+                            submodule_ref.output.stop()
+                        act = h.value[0]
+        else:
             with torch.no_grad():
                 if use_transformer_lens:
+                    # Debug: Check device before and after moving to device
+                    if step < 3:
+                        print(f"Step {step}: Moving batch to device {device}")
+                        print(f"Step {step}: Batch device before: {batch.device if hasattr(batch, 'device') else 'N/A'}")
+                    
+                    batch_device = batch.to(device)
+                    
+                    if step < 3:
+                        print(f"Step {step}: Batch device after: {batch_device.device if hasattr(batch_device, 'device') else 'N/A'}")
+                    
                     _, cache = model.run_with_cache(
-                        batch.to(device),
+                        batch_device,
                         names_filter=[submodule],
                         stop_at_layer=stop_at_layer,
                     )
                     act = cache[submodule]
+                    
+                    # Debug: Check activation device
+                    if step < 3:
+                        print(f"Step {step}: Activation device: {act.device}")
+                        print(f"Step {step}: Activation shape: {act.shape}")
                 else:
                     with model.trace(
                         batch.to(device), invoker_args={"max_length": seq_len}
@@ -312,6 +372,11 @@ def run_pipeline(
                         log_queues[idx].put(("artifact", path))
 
             for tnr in trainers:
+                # Debug: Check trainer device
+                if step < 3:
+                    print(f"Step {step}: Trainer AE device: {next(tnr.ae.parameters()).device}")
+                    print(f"Step {step}: Activation device for trainer: {act.device}")
+                
                 tnr.update(step, act)
 
     if use_wandb:
