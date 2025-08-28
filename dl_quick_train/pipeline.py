@@ -153,8 +153,7 @@ def run_pipeline(
     custom_dataset=None,
     **kwargs,
 ):
-    # Temporarily disable multiprocessing to avoid semaphore errors
-    # mp.set_start_method("spawn", force=True)
+    mp.set_start_method("spawn", force=True)
     
     # Handle custom model and dataset
     if custom_model is not None:
@@ -171,12 +170,6 @@ def run_pipeline(
         else:
             model = LanguageModel(model_name, device_map=device)
             tok = AutoTokenizer.from_pretrained(model_name, use_fast=True)
-    
-    # Convert device string to torch device if needed
-    if isinstance(device, str):
-        torch_device = torch.device(device)
-    else:
-        torch_device = device
     
     # Handle custom dataset
     if custom_dataset is not None:
@@ -257,27 +250,20 @@ def run_pipeline(
     else:
         save_dirs = [None for _ in trainer_configs]
 
-    # Create CUDA stream only if using CUDA
-    if torch_device.type == 'cuda':
-        stream = torch.cuda.Stream()
-    else:
-        stream = None
+    stream = torch.cuda.Stream()
         
     for step in tqdm(range(steps), desc="Training"):
         # Handle custom dataset vs standard dataset
+        batch = next(loader)
         if custom_dataset is not None:
             try:
-                batch = next(loader)
                 if batch is not None and isinstance(batch, (tuple, list)) and len(batch) == 2:
                     batch, _ = batch  # Extract just the tokens, ignore labels
             except StopIteration:
                 # Reset iterator for custom dataset
                 loader.iterator = None
-                batch = next(loader)
                 if batch is not None and isinstance(batch, (tuple, list)) and len(batch) == 2:
                     batch, _ = batch
-        else:
-            batch = next(loader)
             
         # Check if batch is None
         if batch is None:
@@ -288,17 +274,15 @@ def run_pipeline(
         with torch.cuda.stream(stream):
             with torch.no_grad():
                 if use_transformer_lens:
-                    batch_device = batch.to(torch_device) 
-                    
                     _, cache = model.run_with_cache(
-                        batch_device,
+                        batch.to(device) ,
                         names_filter=[submodule],
                         stop_at_layer=stop_at_layer,
                     )
                     act = cache[submodule]
                 else:
                     with model.trace(
-                        batch.to(torch_device), invoker_args={"max_length": seq_len}
+                        batch.to(device), invoker_args={"max_length": seq_len}
                     ):
                         h = submodule_ref.output.save()
                         submodule_ref.output.stop()
@@ -314,6 +298,7 @@ def run_pipeline(
                     log_queues=log_queues,
                     verbose=verbose,
                 )
+
             if save_steps is not None and step in save_steps:
                 for idx, (trainer_dir, trainer) in enumerate(zip(save_dirs, trainers)):
                     if trainer_dir is None:
