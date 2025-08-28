@@ -1,6 +1,6 @@
 # !pip install transformer-lens dictionary-learning
 
-SAE_DIM = 4096
+SAE_DIM = 1024 #16384 #1024 # 4096
 
 """### Train SAE on Toy Transformer using run_pipeline for w&b logging and parallel training"""
 
@@ -264,7 +264,7 @@ def train_sae_with_pipeline(layer_to_train=1, sae_dim=SAE_DIM, use_wandb=True):
                 model_name="custom",
                 dataset_name="custom",
                 submodule=submodule,
-                steps=10_000,  # Reduced for testing
+                steps= 30_000,  # Reduced for testing
                 batch_size=64,
                 seq_len=64,
                 use_wandb=use_wandb,
@@ -274,7 +274,7 @@ def train_sae_with_pipeline(layer_to_train=1, sae_dim=SAE_DIM, use_wandb=True):
                 save_dir="./sae_checkpoints",
                 log_steps=500,
                 verbose=True,
-                save_steps=[5_000, 10_000],
+                save_steps=[20_000, 29_000],
                 custom_model=model,
                 custom_dataset=wrapped_dataset
             )
@@ -323,7 +323,7 @@ def extract_sae_features(layer, sae_path, val_loader, device, model):
     
     sae.eval()
     model.eval()
-    
+    print_once = True
     with torch.no_grad():
         for toks, labels in val_loader:
             toks = toks.to(torch_device)
@@ -336,7 +336,68 @@ def extract_sae_features(layer, sae_path, val_loader, device, model):
             # Extract features
             features = sae.encode(acts)
             reconstruction = sae.decode(features)
-            
+            if print_once:
+                # For each row in the first batch, print which feature indices are > 0
+                features_np = features[0, :, :].cpu().numpy() if features.device.type != 'cpu' else features[0, :, :].numpy()
+                for i, row in enumerate(features_np):
+                    active_indices = np.where(row > 0)[0]
+                    print(f"Row {i}: Indices > 0: {active_indices.tolist()}")
+                
+                # Print first batch tokens and labels in readable format
+                print("\n=== First Tokens and Labels ===")
+                # Get sequence and labels for this example
+                seq = toks[0]
+                label = labels[0]
+                
+                # Find the position of the query token (Q)
+                q_pos = (seq == Q).nonzero(as_tuple=False).squeeze()
+                if q_pos.numel() > 0:
+                    q_pos = q_pos.item()
+                    # Get the sequence up to the query
+                    context_seq = seq[:q_pos]
+                    # Remove padding tokens
+                    context_seq = context_seq[context_seq != PAD]
+                    
+                    # Convert to readable format
+                    readable_seq = []
+                    for token in context_seq:
+                        if token < E:
+                            readable_seq.append(f"E{token.item()}")
+                        elif token < E + T:
+                            readable_seq.append(f"T{token.item() - E}")
+                        elif token == SEP:
+                            readable_seq.append("SEP")
+                        else:
+                            readable_seq.append(f"UNK{token.item()}")
+                    
+                    # Get the query components and answer
+                    query_rel = seq[q_pos - 2].item()  # Relation type (Tq)
+                    query_ent = seq[q_pos - 1].item()  # Entity (Eq)
+                    answer = label[q_pos].item() if label[q_pos] != IGNORE_INDEX else "IGNORE"
+                    
+                    print(f"  Tokens: {' '.join(readable_seq)} Q")
+                    print(f"  Query: T{query_rel - E} E{query_ent} Q")
+                    print(f"  Answer: E{answer}")
+                else:
+                    print(f"  No query token found in sequence")
+                    # Still show the sequence in readable format
+                    readable_seq = []
+                    for token in seq:
+                        if token == PAD:
+                            break
+                        elif token < E:
+                            readable_seq.append(f"E{token.item()}")
+                        elif token < E + T:
+                            readable_seq.append(f"T{token.item() - E}")
+                        elif token == SEP:
+                            readable_seq.append("SEP")
+                        elif token == Q:
+                            readable_seq.append("Q")
+                        else:
+                            readable_seq.append(f"UNK{token.item()}")
+                    print(f"  Tokens: {' '.join(readable_seq)}")
+                
+                print_once = False
             all_features.append(features[:, -1, :].cpu()) # last token feature
             all_activations.append(acts.cpu())
             all_reconstructions.append(reconstruction.cpu())
@@ -511,23 +572,45 @@ def main():
         if device.type == 'cuda':
             print(f"GPU memory before main: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
         
-        print("Starting SAE training with pipeline...")
-        print(f"Training SAE on layer {layer_to_train}")
-        
-        # Train SAE
-        run_ids, trainer_config, model = train_sae_with_pipeline(
-            layer_to_train=layer_to_train,
-            sae_dim=SAE_DIM,
-            use_wandb=use_wandb
-        )
-        
-        if run_ids:
-            print(f"Training completed! Run IDs: {run_ids}")
+        # Check if ae_29000.pt already exists
+        if os.path.exists("sae_checkpoints/trainer_0/checkpoints/ae_29000.pt"):
+            print("✅ ae_29000.pt already exists. Skipping training pipeline.")
+            print("Loading existing checkpoint and proceeding with feature extraction...")
+            
+            # Load model without training
+            model = build_model(N_LAYERS, HEADS)
+            model = model.to(device)
+            print(f"Moving model to device: {device}")
+            
+            # Load pretrained weights
+            REPO_ID = "sebastianhoenig/2L2H_Final"
+            FILENAME = "D256_L2_H2_attnOnly1_lr5.0e-04_wd0.01.pt"
+            weights_path = hf_hub_download(repo_id=REPO_ID, filename=FILENAME)
+            pretrained_weights = torch.load(weights_path, map_location=device, weights_only=True)
+            state_dict = pretrained_weights["model"]
+            model.load_state_dict(state_dict)
+            print("Model loaded successfully.")
+            
+            # Set run_ids to empty list since no training was done
+            run_ids = []
         else:
-            print("Training completed but no run IDs returned")
+            print("Starting SAE training with pipeline...")
+            print(f"Training SAE on layer {layer_to_train}")
+            
+            # Train SAE
+            run_ids, trainer_config, model = train_sae_with_pipeline(
+                layer_to_train=layer_to_train,
+                sae_dim=SAE_DIM,
+                use_wandb=use_wandb
+            )
+            
+            if run_ids:
+                print(f"Training completed! Run IDs: {run_ids}")
+            else:
+                print("Training completed but no run IDs returned")
         
-        # Verify that checkpoints were created
-        print("\nVerifying checkpoint creation...")
+        # Verify that checkpoints were created or find existing ones
+        print("\nVerifying checkpoint availability...")
         checkpoint_dir = f"./sae_checkpoints/trainer_0/checkpoints/"
         if os.path.exists(checkpoint_dir):
             checkpoints = [f for f in os.listdir(checkpoint_dir) if f.endswith('.pt')]

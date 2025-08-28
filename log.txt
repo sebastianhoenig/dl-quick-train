@@ -1,0 +1,642 @@
+Using device: cuda
+CUDA available: True
+CUDA device count: 1
+Current CUDA device: 0
+CUDA device name: NVIDIA A40
+/usr/local/lib/python3.11/dist-packages/torch/__init__.py:1242: UserWarning: torch.set_default_tensor_type() is deprecated as of PyTorch 2.1, please use torch.set_default_dtype() and torch.set_default_device() as alternatives. (Triggered internally at /pytorch/torch/csrc/tensor/python_tensor.cpp:434.)
+  _C._set_default_tensor_type(t)
+Test tensor allocated on GPU: cuda:0
+GPU memory allocated: 3.81 MB
+CUDA initialized successfully
+Process ID: 335198
+CUDA device properties: _CudaDeviceProperties(name='NVIDIA A40', major=8, minor=6, total_memory=45515MB, multi_processor_count=84, uuid=1f8cb0fb-db64-8241-6c3a-d385eb09f9a0, L2_cache_size=6MB)
+Set CUDA environment variables
+Main function using device: cuda
+Created val_loader in main function
+GPU memory before main: 0.00 MB
+✅ ae_29000.pt already exists. Skipping training pipeline.
+Loading existing checkpoint and proceeding with feature extraction...
+Moving model to device:  cuda
+Moving model to device: cuda
+Model loaded successfully.
+
+Verifying checkpoint availability...
+Layer 1: Found 4 checkpoints: ['ae_5000.pt', 'ae_13000.pt', 'ae_20000.pt', 'ae_29000.pt']
+
+Extracting features for layer 1...
+Using checkpoint: ae_29000.pt
+Successfully loaded SAE from ./sae_checkpoints/trainer_0/checkpoints/ae_29000.pt
+Row 0: Indices > 0: [8, 59, 60, 76, 77, 78, 88, 118, 138, 160, 164, 170, 183, 199, 216, 267, 294, 328, 396, 398, 405, 445, 447, 483, 515, 526, 528, 554, 561, 583, 600, 655, 688, 692, 704, 732, 745, 794, 795, 823, 832, 851, 855, 856, 935, 962, 964, 966, 967, 968, 986, 1023]
+Row 1: Indices > 0: [19, 30, 60, 82, 170, 184, 185, 216, 235, 294, 304, 345, 347, 354, 362, 387, 395, 438, 462, 490, 527, 558, 564, 590, 655, 656, 664, 675, 676, 681, 692, 744, 748, 762, 776, 795, 819, 851, 859, 907, 974, 1017]
+Row 2: Indices > 0: [29, 60, 77, 92, 170, 212, 216, 235, 239, 285, 294, 338, 354, 387, 445, 453, 456, 462, 482, 493, 526, 569, 596, 654, 655, 656, 666, 675, 676, 776, 795, 819, 822, 830, 889, 899, 932, 939, 962, 974, 1017, 1021]
+Row 3: Indices > 0: [8, 26, 50, 60, 77, 132, 170, 183, 184, 185, 201, 216, 235, 243, 271, 294, 309, 327, 387, 417, 430, 434, 445, 446, 456, 482, 493, 501, 526, 527, 596, 623, 632, 634, 654, 655, 675, 676, 692, 712, 717, 731, 736, 751, 776, 795, 887, 889, 899, 907, 914, 925, 962, 996, 1005, 1017]
+Row 4: Indices > 0: [26, 40, 164, 197, 208, 212, 225, 275, 397, 428, 465, 505, 519, 549, 589, 606, 609, 719, 752, 773, 796, 811, 815, 840, 865, 869, 872, 888, 895, 924, 960, 961, 988, 999, 1019]
+Row 5: Indices > 0: [15, 26, 40, 55, 96, 164, 175, 189, 193, 208, 212, 227, 278, 323, 384, 391, 442, 459, 482, 505, 519, 526, 535, 546, 571, 589, 603, 606, 609, 612, 700, 719, 738, 752, 796, 800, 811, 815, 817, 824, 829, 830, 865, 868, 869, 888, 899, 935, 960, 973, 999, 1019]
+Row 6: Indices > 0: [15, 26, 34, 40, 88, 164, 208, 212, 225, 239, 249, 278, 397, 440, 446, 447, 482, 505, 526, 546, 571, 606, 609, 676, 678, 719, 738, 751, 776, 796, 811, 815, 817, 824, 830, 865, 869, 888, 890, 899, 960, 961, 982, 1017]
+Row 7: Indices > 0: [58, 96, 212, 243, 340, 426, 438, 479, 483, 490, 492, 512, 589, 592, 596, 598, 602, 621, 623, 656, 666, 712, 744, 769, 887, 920, 926, 940, 955, 961, 1015, 1021]
+Row 8: Indices > 0: [15, 35, 40, 52, 63, 96, 164, 169, 197, 212, 234, 316, 323, 402, 428, 457, 463, 479, 490, 546, 589, 603, 606, 656, 688, 719, 773, 817, 827, 869, 870, 882, 887, 888, 895, 896, 897, 898, 920, 926, 935, 953, 960, 961]
+Row 9: Indices > 0: [8, 15, 26, 30, 34, 40, 51, 88, 164, 175, 183, 189, 193, 198, 207, 212, 216, 225, 227, 235, 249, 275, 278, 281, 323, 390, 391, 397, 403, 439, 446, 447, 456, 463, 482, 493, 495, 505, 526, 535, 546, 571, 606, 609, 628, 676, 678, 692, 719, 738, 745, 751, 776, 811, 815, 824, 830, 840, 865, 869, 870, 887, 890, 896, 897, 899, 907, 935, 960, 964, 974, 978, 993, 1017]
+Row 10: Indices > 0: [8, 15, 22, 34, 40, 60, 88, 164, 189, 193, 207, 212, 216, 225, 227, 235, 239, 249, 323, 391, 446, 447, 456, 493, 526, 529, 530, 535, 569, 571, 606, 609, 628, 676, 678, 692, 738, 751, 768, 770, 776, 824, 840, 865, 870, 890, 896, 897, 907, 935, 948, 953, 960, 974, 982, 1017]
+Row 11: Indices > 0: [37, 210, 333, 397, 426, 470, 512, 526, 548, 589, 614, 623, 634, 717, 769, 869, 903, 925, 955, 961, 988]
+Row 12: Indices > 0: [15, 35, 96, 190, 197, 322, 333, 397, 427, 428, 446, 470, 526, 548, 589, 606, 612, 704, 752, 773, 796, 811, 815, 824, 869, 888, 895, 903, 935, 960, 961, 973]
+Row 13: Indices > 0: [8, 34, 40, 58, 60, 77, 95, 118, 170, 216, 235, 249, 294, 333, 387, 418, 445, 446, 469, 490, 526, 535, 548, 558, 596, 632, 653, 655, 656, 676, 692, 746, 776, 784, 815, 819, 830, 836, 887, 907, 974, 1017]
+Row 14: Indices > 0: [34, 58, 73, 80, 170, 216, 235, 239, 294, 333, 354, 428, 465, 470, 490, 526, 548, 596, 609, 612, 773, 780, 811, 815]
+Row 15: Indices > 0: [37, 177, 271, 397, 426, 490, 512, 589, 614, 623, 712, 717, 754, 769, 781, 869, 883, 925, 937, 940, 955, 961, 984, 996]
+Row 16: Indices > 0: [8, 40, 101, 142, 170, 197, 212, 216, 235, 249, 294, 320, 328, 333, 340, 356, 399, 445, 469, 526, 530, 535, 548, 596, 655, 656, 672, 681, 692, 754, 819, 836, 870, 883, 887, 907, 935, 953, 974, 1017]
+Row 17: Indices > 0: [6, 8, 58, 60, 77, 92, 95, 101, 118, 121, 142, 170, 184, 199, 201, 212, 216, 234, 235, 249, 257, 267, 291, 294, 313, 316, 323, 328, 340, 345, 347, 356, 412, 418, 434, 442, 445, 447, 456, 469, 490, 492, 521, 526, 530, 535, 558, 571, 596, 624, 632, 638, 655, 656, 658, 676, 681, 692, 730, 753, 754, 768, 776, 784, 792, 795, 819, 820, 836, 870, 871, 883, 887, 897, 907, 935, 962, 974, 1017, 1021, 1023]
+Row 18: Indices > 0: [8, 15, 49, 92, 96, 101, 123, 136, 145, 184, 197, 212, 225, 226, 249, 267, 275, 284, 347, 349, 364, 384, 397, 399, 402, 447, 526, 530, 571, 589, 606, 658, 670, 692, 718, 737, 750, 752, 754, 756, 781, 796, 817, 819, 846, 854, 869, 870, 883, 895, 903, 915, 920, 928, 930, 932, 935, 937, 961, 984, 988, 991, 1011]
+Row 19: Indices > 0: [37, 58, 59, 76, 77, 142, 309, 345, 405, 426, 512, 589, 596, 700, 712, 718, 760, 780, 855, 925, 936, 940, 955, 997]
+Row 20: Indices > 0: [3, 15, 49, 59, 70, 96, 101, 123, 142, 164, 177, 191, 197, 206, 209, 234, 249, 296, 313, 316, 321, 328, 345, 348, 356, 364, 375, 399, 405, 428, 430, 434, 463, 470, 492, 526, 528, 529, 546, 553, 571, 578, 589, 600, 606, 612, 625, 653, 681, 700, 702, 704, 719, 745, 750, 751, 752, 756, 760, 761, 773, 809, 811, 817, 836, 854, 855, 869, 887, 888, 895, 907, 920, 932, 935, 960, 961, 984, 991, 996, 999, 1013, 1014, 1019]
+Row 21: Indices > 0: [54, 58, 59, 60, 70, 77, 101, 118, 121, 142, 170, 199, 203, 206, 235, 249, 257, 291, 294, 313, 316, 323, 328, 345, 356, 384, 399, 405, 412, 418, 430, 434, 435, 442, 445, 447, 490, 492, 519, 521, 526, 529, 547, 558, 571, 596, 624, 625, 632, 653, 655, 676, 681, 686, 692, 702, 745, 760, 761, 776, 784, 795, 809, 836, 851, 855, 887, 907, 932, 935, 962, 999, 1013, 1017, 1023]
+Row 22: Indices > 0: [15, 59, 70, 96, 98, 101, 123, 142, 183, 197, 206, 227, 230, 249, 257, 285, 291, 296, 316, 328, 345, 347, 356, 384, 399, 405, 430, 447, 470, 492, 511, 526, 571, 579, 589, 592, 596, 600, 606, 612, 625, 653, 681, 686, 692, 697, 700, 745, 750, 756, 760, 761, 773, 809, 817, 836, 851, 854, 855, 869, 888, 907, 920, 930, 932, 935, 961, 962, 984, 991, 999, 1014]
+Row 23: Indices > 0: [19, 60, 77, 100, 118, 170, 233, 243, 296, 309, 355, 426, 445, 512, 513, 623, 676, 680, 712, 719, 731, 748, 769, 776, 940, 955, 1005, 1017]
+Row 24: Indices > 0: [15, 19, 22, 35, 49, 54, 59, 96, 100, 142, 197, 234, 249, 296, 316, 321, 323, 345, 399, 402, 405, 428, 437, 492, 556, 589, 606, 612, 625, 632, 653, 664, 681, 700, 719, 745, 748, 751, 752, 760, 761, 773, 811, 817, 836, 854, 855, 869, 895, 907, 920, 926, 948, 960, 961, 1014, 1017, 1019]
+Row 25: Indices > 0: [7, 59, 60, 77, 100, 118, 142, 170, 235, 324, 405, 412, 445, 490, 502, 521, 526, 558, 596, 632, 676, 719, 736, 760, 776, 836, 855, 870, 907, 1017, 1021, 1023]
+Row 26: Indices > 0: [15, 59, 96, 208, 245, 249, 267, 291, 328, 333, 345, 356, 405, 428, 526, 548, 589, 612, 653, 745, 752, 760, 773, 811, 815, 817, 851, 855, 869, 903, 961, 1017]
+Row 27: Indices > 0: [23, 29, 60, 63, 96, 153, 184, 199, 212, 233, 234, 243, 323, 328, 404, 426, 437, 439, 456, 512, 513, 529, 538, 549, 589, 592, 614, 621, 623, 632, 710, 712, 719, 769, 812, 893, 955, 961, 978]
+Row 28: Indices > 0: [40, 59, 60, 77, 142, 164, 170, 197, 234, 235, 239, 249, 267, 310, 323, 328, 405, 434, 445, 526, 632, 672, 676, 719, 760, 776, 815, 817, 836, 855, 895, 907, 953, 1017]
+Row 29: Indices > 0: [8, 40, 58, 59, 60, 77, 101, 118, 142, 170, 199, 201, 203, 212, 216, 235, 249, 257, 285, 294, 317, 323, 328, 350, 387, 405, 412, 434, 445, 456, 469, 490, 492, 502, 519, 521, 526, 558, 596, 624, 632, 636, 638, 653, 655, 656, 676, 681, 692, 702, 732, 733, 738, 760, 776, 795, 815, 819, 830, 836, 855, 865, 907, 962, 974, 982, 1017, 1021, 1023]
+Row 30: Indices > 0: [54, 59, 60, 73, 74, 77, 101, 118, 121, 142, 170, 199, 203, 227, 234, 235, 239, 249, 257, 267, 285, 294, 323, 328, 340, 341, 345, 356, 399, 405, 412, 434, 442, 445, 465, 469, 490, 492, 519, 521, 526, 528, 530, 553, 596, 632, 638, 653, 655, 676, 681, 702, 733, 736, 738, 745, 760, 770, 776, 815, 820, 830, 836, 855, 865, 870, 887, 907, 926, 953, 974, 1017, 1021, 1023]
+Row 31: Indices > 0: [8, 29, 60, 77, 170, 184, 185, 212, 309, 396, 445, 492, 512, 526, 528, 710, 712, 717, 719, 731, 733, 736, 745, 769, 808, 880, 883, 907, 940, 955, 961, 971, 1021]
+Row 32: Indices > 0: [8, 19, 54, 59, 60, 73, 77, 95, 98, 100, 101, 118, 121, 142, 165, 170, 184, 185, 199, 201, 203, 207, 212, 216, 234, 235, 236, 249, 257, 278, 282, 285, 291, 294, 328, 340, 341, 345, 347, 350, 387, 391, 396, 405, 412, 434, 439, 445, 447, 456, 469, 490, 492, 493, 502, 511, 519, 521, 526, 535, 558, 573, 596, 624, 632, 638, 655, 656, 672, 676, 681, 692, 711, 728, 732, 733, 734, 736, 738, 745, 748, 776, 795, 815, 819, 820, 833, 836, 840, 855, 859, 865, 870, 880, 883, 887, 907, 926, 935, 953, 962, 974, 990, 1013, 1017, 1021, 1023]
+Row 33: Indices > 0: [19, 29, 33, 34, 35, 59, 60, 73, 77, 95, 98, 100, 101, 118, 165, 170, 185, 199, 203, 212, 216, 230, 234, 235, 239, 247, 249, 291, 294, 296, 313, 323, 328, 340, 347, 350, 354, 384, 396, 405, 435, 437, 445, 447, 490, 492, 511, 526, 528, 533, 561, 573, 632, 655, 676, 692, 711, 719, 732, 736, 738, 745, 748, 760, 770, 776, 808, 820, 855, 856, 870, 883, 887, 907, 935, 953, 974, 999, 1013, 1021, 1023]
+Row 34: Indices > 0: [15, 40, 164, 212, 331, 397, 400, 426, 589, 604, 606, 614, 719, 796, 869, 955, 961]
+
+=== First Tokens and Labels ===
+  Tokens: E63 T5 E26 SEP E30 T0 E7 SEP E1 T1 E81 SEP E64 T9 E50 SEP E60 T9 E72 SEP E55 T9 E27 SEP E81 T6 E0 SEP E39 T8 E55 SEP T5 E63 Q
+  Query: T5 E63 Q
+  Answer: E26
+
+=== SAE Feature Analysis ===
+Overall feature sparsity: 0.9779 (97.79% of features are zero)
+feature_frequency tensor([0.0000, 0.0005, 0.0000,  ..., 0.0090, 0.0000, 0.3386], device='cpu')
+feature_sum tensor([   0.,   10.,    0.,  ...,  180.,    0., 6771.], device='cpu')
+
+Top 10 most active features:
+  Feature 734: 13202.0000
+  Feature 44: 13192.0000
+  Feature 23: 12398.0000
+  Feature 456: 12069.0000
+  Feature 826: 10749.0000
+  Feature 743: 10257.0000
+  Feature 327: 10066.0000
+  Feature 323: 9926.0000
+  Feature 604: 6926.0000
+  Feature 1023: 6771.0000
+
+Sparsity per sample - Mean: 0.9779, Std: 0.0109
+
+=== Examples for Top 10 Features ===
+
+--- Feature 734 ---
+  Total activations: 13202
+  Activation range: 0.0004 to 8.6239
+  Mean activation: 6.9363
+  Example 1:
+    Context: E29 T0 E73 SEP E60 T0 E96 SEP E98 T2 E13 SEP E96 T9 E52 SEP E89 T4 E5 SEP E15 T2 E4 SEP T2 E98
+    Query: T2 E98 Q
+    Answer: E13
+    Feature value: 7.7140
+  Example 2:
+    Context: E51 T2 E78 SEP E40 T2 E16 SEP E51 T7 E63 SEP E23 T1 E32 SEP E99 T9 E12 SEP E93 T2 E38 SEP T2 E51
+    Query: T2 E51 Q
+    Answer: E78
+    Feature value: 7.0377
+  Example 3:
+    Context: E64 T1 E32 SEP E24 T1 E9 SEP E12 T9 E80 SEP E57 T1 E45 SEP E96 T7 E94 SEP E94 T1 E23 SEP E98 T7 E66 SEP E74 T6 E0 SEP T7 E96
+    Query: T7 E96 Q
+    Answer: E94
+    Feature value: 0.0368
+  Example 4:
+    Context: E83 T5 E58 SEP E17 T2 E41 SEP E35 T5 E62 SEP E74 T9 E3 SEP E69 T3 E16 SEP E54 T5 E26 SEP E15 T6 E48 SEP T2 E17
+    Query: T2 E17 Q
+    Answer: E41
+    Feature value: 6.5013
+  Example 5:
+    Context: E16 T3 E32 SEP E73 T2 E39 SEP E24 T7 E46 SEP E93 T3 E8 SEP E28 T2 E41 SEP E18 T6 E85 SEP T7 E24
+    Query: T7 E24 Q
+    Answer: E46
+    Feature value: 7.4745
+  Example 6:
+    Context: E90 T2 E37 SEP E12 T5 E65 SEP E66 T0 E73 SEP E37 T9 E13 SEP E35 T7 E34 SEP E79 T4 E68 SEP E35 T8 E98 SEP T7 E35
+    Query: T7 E35 Q
+    Answer: E34
+    Feature value: 6.8637
+  Example 7:
+    Context: E18 T5 E22 SEP E49 T2 E78 SEP E15 T0 E72 SEP E31 T2 E14 SEP E24 T3 E41 SEP E49 T8 E24 SEP T2 E49
+    Query: T2 E49 Q
+    Answer: E78
+    Feature value: 7.0887
+  Example 8:
+    Context: E87 T8 E83 SEP E77 T1 E10 SEP E79 T9 E61 SEP E2 T7 E80 SEP E70 T7 E91 SEP E44 T9 E70 SEP T7 E70
+    Query: T7 E70 Q
+    Answer: E91
+    Feature value: 7.8253
+  Example 9:
+    Context: E34 T4 E22 SEP E22 T7 E93 SEP E80 T5 E23 SEP E69 T4 E93 SEP E43 T1 E15 SEP E33 T4 E22 SEP E80 T7 E14 SEP T7 E80
+    Query: T7 E80 Q
+    Answer: E14
+    Feature value: 3.7221
+  Example 10:
+    Context: E72 T4 E61 SEP E68 T1 E69 SEP E58 T9 E5 SEP E77 T9 E87 SEP E68 T6 E42 SEP T1 E68
+    Query: T1 E68 Q
+    Answer: E69
+    Feature value: 7.0662
+
+--- Feature 44 ---
+  Total activations: 13192
+  Activation range: 0.0003 to 3.1638
+  Mean activation: 2.4614
+  Example 1:
+    Context: E14 T5 E98 SEP E32 T3 E11 SEP E46 T6 E39 SEP E9 T7 E62 SEP E12 T5 E13 SEP E12 T0 E94 SEP E43 T1 E33 SEP T5 E12
+    Query: T5 E12 Q
+    Answer: E13
+    Feature value: 2.2621
+  Example 2:
+    Context: E65 T8 E73 SEP E0 T4 E65 SEP E76 T2 E80 SEP E58 T4 E37 SEP E21 T0 E38 SEP E2 T2 E99 SEP E91 T8 E24 SEP T2 E76
+    Query: T2 E76 Q
+    Answer: E80
+    Feature value: 2.2648
+  Example 3:
+    Context: E3 T3 E1 SEP E53 T8 E97 SEP E3 T7 E99 SEP E86 T6 E47 SEP E13 T6 E72 SEP T7 E3
+    Query: T7 E3 Q
+    Answer: E99
+    Feature value: 2.6395
+  Example 4:
+    Context: E3 T6 E78 SEP E35 T5 E66 SEP E3 T3 E60 SEP E23 T9 E74 SEP E95 T9 E4 SEP E73 T5 E18 SEP E62 T7 E60 SEP T6 E3
+    Query: T6 E3 Q
+    Answer: E78
+    Feature value: 2.0965
+  Example 5:
+    Context: E28 T2 E99 SEP E24 T4 E95 SEP E27 T6 E99 SEP E25 T5 E21 SEP E83 T4 E90 SEP E37 T0 E58 SEP T2 E28
+    Query: T2 E28 Q
+    Answer: E99
+    Feature value: 2.6608
+  Example 6:
+    Context: E54 T7 E22 SEP E50 T0 E91 SEP E54 T3 E60 SEP E34 T9 E90 SEP E97 T6 E40 SEP E48 T9 E38 SEP T7 E54
+    Query: T7 E54 Q
+    Answer: E22
+    Feature value: 2.7911
+  Example 7:
+    Context: E76 T5 E35 SEP E84 T7 E70 SEP E15 T2 E65 SEP E76 T4 E33 SEP E36 T4 E29 SEP E71 T1 E70 SEP E40 T5 E91 SEP T5 E76
+    Query: T5 E76 Q
+    Answer: E35
+    Feature value: 2.8471
+  Example 8:
+    Context: E99 T3 E39 SEP E23 T2 E94 SEP E81 T7 E37 SEP E46 T5 E95 SEP E99 T2 E27 SEP T2 E99
+    Query: T2 E99 Q
+    Answer: E27
+    Feature value: 2.4368
+  Example 9:
+    Context: E76 T5 E41 SEP E0 T6 E4 SEP E11 T2 E23 SEP E89 T9 E81 SEP E0 T7 E54 SEP E65 T8 E74 SEP T6 E0
+    Query: T6 E0 Q
+    Answer: E4
+    Feature value: 2.7659
+  Example 10:
+    Context: E46 T6 E92 SEP E40 T7 E61 SEP E6 T6 E57 SEP E22 T4 E8 SEP E46 T9 E97 SEP T6 E46
+    Query: T6 E46 Q
+    Answer: E92
+    Feature value: 2.7100
+
+--- Feature 23 ---
+  Total activations: 12398
+  Activation range: 0.0001 to 0.6943
+  Mean activation: 0.3050
+  Example 1:
+    Context: E15 T4 E48 SEP E45 T4 E79 SEP E94 T2 E49 SEP E71 T9 E87 SEP E1 T9 E2 SEP E95 T4 E50 SEP E95 T5 E81 SEP T4 E95
+    Query: T4 E95 Q
+    Answer: E50
+    Feature value: 0.2867
+  Example 2:
+    Context: E7 T7 E42 SEP E93 T3 E62 SEP E35 T8 E5 SEP E93 T7 E82 SEP E8 T4 E76 SEP E28 T1 E50 SEP T3 E93
+    Query: T3 E93 Q
+    Answer: E62
+    Feature value: 0.2910
+  Example 3:
+    Context: E54 T4 E71 SEP E95 T3 E52 SEP E12 T7 E1 SEP E12 T3 E91 SEP E75 T2 E40 SEP T7 E12
+    Query: T7 E12 Q
+    Answer: E1
+    Feature value: 0.1329
+  Example 4:
+    Context: E33 T5 E53 SEP E27 T5 E71 SEP E18 T6 E64 SEP E97 T3 E82 SEP E97 T0 E1 SEP T3 E97
+    Query: T3 E97 Q
+    Answer: E82
+    Feature value: 0.2347
+  Example 5:
+    Context: E72 T1 E98 SEP E21 T7 E17 SEP E92 T1 E66 SEP E1 T8 E93 SEP T7 E21
+    Query: T7 E21 Q
+    Answer: E17
+    Feature value: 0.0064
+  Example 6:
+    Context: E48 T9 E83 SEP E56 T3 E51 SEP E78 T9 E71 SEP E71 T9 E50 SEP E98 T6 E59 SEP E35 T3 E19 SEP E98 T8 E12 SEP T8 E98
+    Query: T8 E98 Q
+    Answer: E12
+    Feature value: 0.4799
+  Example 7:
+    Context: E71 T9 E96 SEP E10 T3 E14 SEP E6 T3 E35 SEP E28 T3 E19 SEP E50 T4 E62 SEP E49 T5 E10 SEP E69 T9 E76 SEP T4 E50
+    Query: T4 E50 Q
+    Answer: E62
+    Feature value: 0.3749
+  Example 8:
+    Context: E16 T4 E37 SEP E60 T2 E99 SEP E80 T1 E45 SEP E80 T0 E49 SEP E9 T5 E42 SEP E57 T3 E81 SEP T0 E80
+    Query: T0 E80 Q
+    Answer: E49
+    Feature value: 0.3798
+  Example 9:
+    Context: E64 T7 E48 SEP E84 T6 E73 SEP E64 T3 E97 SEP E69 T1 E82 SEP E59 T7 E69 SEP T7 E64
+    Query: T7 E64 Q
+    Answer: E48
+    Feature value: 0.2169
+  Example 10:
+    Context: E19 T8 E30 SEP E41 T2 E56 SEP E14 T7 E25 SEP E72 T0 E34 SEP E26 T1 E80 SEP E13 T7 E0 SEP E18 T1 E80 SEP T2 E41
+    Query: T2 E41 Q
+    Answer: E56
+    Feature value: 0.5943
+
+--- Feature 456 ---
+  Total activations: 12069
+  Activation range: 0.0000 to 0.0824
+  Mean activation: 0.0244
+  Example 1:
+    Context: E17 T7 E70 SEP E30 T5 E15 SEP E73 T3 E17 SEP E23 T1 E17 SEP E17 T4 E85 SEP T4 E17
+    Query: T4 E17 Q
+    Answer: E85
+    Feature value: 0.0059
+  Example 2:
+    Context: E35 T1 E17 SEP E47 T5 E63 SEP E47 T9 E61 SEP E64 T3 E57 SEP E55 T1 E18 SEP E30 T6 E18 SEP T9 E47
+    Query: T9 E47 Q
+    Answer: E61
+    Feature value: 0.0287
+  Example 3:
+    Context: E64 T8 E35 SEP E41 T9 E98 SEP E64 T6 E70 SEP E28 T1 E55 SEP E95 T1 E3 SEP T6 E64
+    Query: T6 E64 Q
+    Answer: E70
+    Feature value: 0.0086
+  Example 4:
+    Context: E70 T2 E37 SEP E44 T4 E14 SEP E41 T3 E71 SEP E20 T9 E32 SEP E73 T3 E37 SEP E41 T6 E76 SEP E68 T8 E22 SEP T3 E41
+    Query: T3 E41 Q
+    Answer: E71
+    Feature value: 0.0524
+  Example 5:
+    Context: E20 T6 E36 SEP E20 T1 E24 SEP E4 T8 E59 SEP E24 T9 E1 SEP E61 T0 E56 SEP E78 T1 E12 SEP T6 E20
+    Query: T6 E20 Q
+    Answer: E36
+    Feature value: 0.0285
+  Example 6:
+    Context: E62 T0 E10 SEP E24 T6 E52 SEP E49 T3 E15 SEP E24 T7 E40 SEP E96 T1 E91 SEP E8 T3 E47 SEP E26 T1 E18 SEP T7 E24
+    Query: T7 E24 Q
+    Answer: E40
+    Feature value: 0.0417
+  Example 7:
+    Context: E68 T3 E30 SEP E18 T5 E45 SEP E70 T1 E97 SEP E17 T6 E77 SEP E84 T4 E68 SEP T1 E70
+    Query: T1 E70 Q
+    Answer: E97
+    Feature value: 0.0071
+  Example 8:
+    Context: E92 T0 E50 SEP E42 T9 E76 SEP E81 T0 E42 SEP E62 T6 E18 SEP E42 T1 E6 SEP E75 T2 E88 SEP T9 E42
+    Query: T9 E42 Q
+    Answer: E76
+    Feature value: 0.0334
+  Example 9:
+    Context: E12 T3 E85 SEP E99 T8 E48 SEP E98 T9 E53 SEP E60 T5 E10 SEP E12 T0 E5 SEP T0 E12
+    Query: T0 E12 Q
+    Answer: E5
+    Feature value: 0.0045
+  Example 10:
+    Context: E83 T7 E3 SEP E93 T9 E64 SEP E56 T3 E18 SEP E68 T8 E60 SEP E56 T6 E70 SEP E25 T0 E43 SEP T8 E68
+    Query: T8 E68 Q
+    Answer: E60
+    Feature value: 0.0272
+
+--- Feature 826 ---
+  Total activations: 10749
+  Activation range: 0.0000 to 0.5985
+  Mean activation: 0.2477
+  Example 1:
+    Context: E50 T1 E87 SEP E82 T4 E47 SEP E16 T1 E70 SEP E43 T2 E26 SEP E16 T0 E17 SEP T0 E16
+    Query: T0 E16 Q
+    Answer: E17
+    Feature value: 0.2960
+  Example 2:
+    Context: E23 T5 E8 SEP E62 T5 E69 SEP E71 T7 E26 SEP E7 T5 E99 SEP E89 T7 E84 SEP T5 E62
+    Query: T5 E62 Q
+    Answer: E69
+    Feature value: 0.3197
+  Example 3:
+    Context: E76 T1 E4 SEP E16 T3 E79 SEP E49 T5 E68 SEP E13 T9 E55 SEP E75 T7 E92 SEP E10 T5 E56 SEP T3 E16
+    Query: T3 E16 Q
+    Answer: E79
+    Feature value: 0.0945
+  Example 4:
+    Context: E98 T6 E41 SEP E79 T0 E66 SEP E65 T0 E12 SEP E12 T2 E20 SEP E89 T9 E7 SEP E74 T2 E96 SEP T9 E89
+    Query: T9 E89 Q
+    Answer: E7
+    Feature value: 0.2032
+  Example 5:
+    Context: E20 T0 E60 SEP E33 T1 E79 SEP E31 T0 E5 SEP E47 T8 E79 SEP E71 T9 E30 SEP E90 T1 E18 SEP T9 E71
+    Query: T9 E71 Q
+    Answer: E30
+    Feature value: 0.1528
+  Example 6:
+    Context: E15 T2 E82 SEP E37 T1 E60 SEP E15 T0 E71 SEP E78 T1 E43 SEP E18 T2 E39 SEP E88 T9 E5 SEP T0 E15
+    Query: T0 E15 Q
+    Answer: E71
+    Feature value: 0.2040
+  Example 7:
+    Context: E94 T5 E76 SEP E98 T1 E18 SEP E86 T1 E40 SEP E72 T2 E7 SEP E86 T6 E44 SEP E0 T3 E99 SEP E43 T3 E48 SEP E70 T0 E58 SEP T5 E94
+    Query: T5 E94 Q
+    Answer: E76
+    Feature value: 0.0094
+  Example 8:
+    Context: E51 T7 E73 SEP E69 T1 E13 SEP E63 T6 E8 SEP E32 T3 E41 SEP E25 T0 E4 SEP T0 E25
+    Query: T0 E25 Q
+    Answer: E4
+    Feature value: 0.3415
+  Example 9:
+    Context: E8 T0 E35 SEP E21 T1 E71 SEP E0 T5 E96 SEP E58 T6 E72 SEP E91 T8 E64 SEP E96 T3 E93 SEP T1 E21
+    Query: T1 E21 Q
+    Answer: E71
+    Feature value: 0.1685
+  Example 10:
+    Context: E9 T5 E98 SEP E49 T1 E9 SEP E38 T0 E3 SEP E96 T9 E34 SEP E99 T5 E19 SEP E7 T0 E17 SEP E69 T3 E86 SEP T3 E69
+    Query: T3 E69 Q
+    Answer: E86
+    Feature value: 0.0418
+
+--- Feature 743 ---
+  Total activations: 10257
+  Activation range: 0.0000 to 0.5878
+  Mean activation: 0.1938
+  Example 1:
+    Context: E58 T8 E91 SEP E1 T1 E56 SEP E77 T2 E88 SEP E86 T4 E57 SEP E86 T5 E90 SEP T5 E86
+    Query: T5 E86 Q
+    Answer: E90
+    Feature value: 0.3078
+  Example 2:
+    Context: E67 T6 E53 SEP E41 T8 E12 SEP E29 T1 E96 SEP E22 T5 E5 SEP E97 T1 E71 SEP T1 E97
+    Query: T1 E97 Q
+    Answer: E71
+    Feature value: 0.1874
+  Example 3:
+    Context: E69 T9 E46 SEP E91 T1 E94 SEP E69 T7 E67 SEP E87 T2 E98 SEP E46 T2 E92 SEP E91 T0 E46 SEP T0 E91
+    Query: T0 E91 Q
+    Answer: E46
+    Feature value: 0.0517
+  Example 4:
+    Context: E71 T7 E27 SEP E76 T0 E25 SEP E99 T2 E90 SEP E83 T7 E9 SEP E91 T3 E94 SEP T7 E71
+    Query: T7 E71 Q
+    Answer: E27
+    Feature value: 0.2666
+  Example 5:
+    Context: E24 T3 E34 SEP E54 T5 E15 SEP E57 T0 E54 SEP E54 T3 E30 SEP E79 T8 E3 SEP T5 E54
+    Query: T5 E54 Q
+    Answer: E15
+    Feature value: 0.3048
+  Example 6:
+    Context: E21 T7 E63 SEP E84 T9 E20 SEP E63 T1 E12 SEP E5 T6 E74 SEP E91 T1 E52 SEP T7 E21
+    Query: T7 E21 Q
+    Answer: E63
+    Feature value: 0.2419
+  Example 7:
+    Context: E18 T9 E92 SEP E29 T8 E85 SEP E17 T1 E33 SEP E26 T9 E70 SEP E96 T3 E3 SEP E17 T8 E90 SEP T8 E17
+    Query: T8 E17 Q
+    Answer: E90
+    Feature value: 0.0929
+  Example 8:
+    Context: E52 T8 E40 SEP E24 T6 E46 SEP E69 T7 E62 SEP E52 T5 E45 SEP E34 T0 E21 SEP E57 T7 E2 SEP T0 E34
+    Query: T0 E34 Q
+    Answer: E21
+    Feature value: 0.0671
+  Example 9:
+    Context: E62 T7 E39 SEP E36 T8 E23 SEP E20 T4 E83 SEP E60 T7 E97 SEP E95 T7 E34 SEP T7 E95
+    Query: T7 E95 Q
+    Answer: E34
+    Feature value: 0.2639
+  Example 10:
+    Context: E92 T8 E18 SEP E91 T6 E2 SEP E40 T4 E27 SEP E1 T9 E75 SEP E83 T2 E22 SEP E58 T0 E27 SEP E69 T8 E3 SEP T8 E69
+    Query: T8 E69 Q
+    Answer: E3
+    Feature value: 0.1162
+
+--- Feature 327 ---
+  Total activations: 10066
+  Activation range: 0.0000 to 0.1578
+  Mean activation: 0.0237
+  Example 1:
+    Context: E95 T5 E9 SEP E40 T4 E45 SEP E17 T7 E15 SEP E66 T7 E97 SEP E27 T6 E5 SEP E43 T7 E75 SEP T7 E43
+    Query: T7 E43 Q
+    Answer: E75
+    Feature value: 0.0211
+  Example 2:
+    Context: E65 T7 E28 SEP E32 T8 E88 SEP E9 T5 E61 SEP E41 T4 E42 SEP E9 T4 E75 SEP T5 E9
+    Query: T5 E9 Q
+    Answer: E61
+    Feature value: 0.0342
+  Example 3:
+    Context: E7 T9 E25 SEP E64 T9 E32 SEP E33 T6 E11 SEP E31 T1 E25 SEP T9 E7
+    Query: T9 E7 Q
+    Answer: E25
+    Feature value: 0.0580
+  Example 4:
+    Context: E37 T0 E88 SEP E37 T8 E93 SEP E46 T0 E27 SEP E50 T7 E48 SEP E72 T7 E75 SEP T8 E37
+    Query: T8 E37 Q
+    Answer: E93
+    Feature value: 0.0147
+  Example 5:
+    Context: E79 T3 E45 SEP E56 T8 E48 SEP E63 T9 E38 SEP E63 T1 E50 SEP E15 T1 E80 SEP T9 E63
+    Query: T9 E63 Q
+    Answer: E38
+    Feature value: 0.0213
+  Example 6:
+    Context: E84 T5 E15 SEP E84 T4 E93 SEP E50 T5 E48 SEP E79 T4 E0 SEP E41 T5 E65 SEP T4 E84
+    Query: T4 E84 Q
+    Answer: E93
+    Feature value: 0.0324
+  Example 7:
+    Context: E82 T5 E49 SEP E7 T2 E76 SEP E90 T7 E40 SEP E66 T4 E90 SEP E82 T2 E54 SEP T2 E82
+    Query: T2 E82 Q
+    Answer: E54
+    Feature value: 0.0430
+  Example 8:
+    Context: E55 T4 E87 SEP E24 T4 E60 SEP E33 T1 E62 SEP E27 T2 E19 SEP T1 E33
+    Query: T1 E33 Q
+    Answer: E62
+    Feature value: 0.0359
+  Example 9:
+    Context: E32 T7 E12 SEP E74 T9 E37 SEP E76 T5 E52 SEP E74 T5 E68 SEP E26 T1 E19 SEP E63 T2 E30 SEP T9 E74
+    Query: T9 E74 Q
+    Answer: E37
+    Feature value: 0.0187
+  Example 10:
+    Context: E10 T6 E65 SEP E30 T8 E70 SEP E58 T7 E40 SEP E63 T0 E6 SEP E22 T8 E51 SEP E95 T4 E11 SEP E17 T8 E74 SEP E56 T8 E99 SEP T7 E58
+    Query: T7 E58 Q
+    Answer: E40
+    Feature value: 0.0048
+
+--- Feature 323 ---
+  Total activations: 9926
+  Activation range: 0.0000 to 0.3041
+  Mean activation: 0.0399
+  Example 1:
+    Context: E77 T1 E80 SEP E92 T0 E22 SEP E92 T6 E65 SEP E66 T2 E46 SEP E84 T4 E37 SEP E54 T8 E60 SEP E26 T7 E8 SEP T0 E92
+    Query: T0 E92 Q
+    Answer: E22
+    Feature value: 0.0601
+  Example 2:
+    Context: E27 T1 E26 SEP E65 T3 E69 SEP E60 T5 E97 SEP E37 T7 E50 SEP E81 T6 E12 SEP E60 T7 E30 SEP T5 E60
+    Query: T5 E60 Q
+    Answer: E97
+    Feature value: 0.0314
+  Example 3:
+    Context: E19 T2 E70 SEP E32 T9 E74 SEP E58 T4 E44 SEP E56 T8 E88 SEP E56 T6 E78 SEP E81 T3 E50 SEP T9 E32
+    Query: T9 E32 Q
+    Answer: E74
+    Feature value: 0.0383
+  Example 4:
+    Context: E6 T4 E65 SEP E61 T0 E67 SEP E98 T3 E85 SEP E79 T4 E93 SEP E61 T1 E89 SEP E13 T3 E72 SEP T1 E61
+    Query: T1 E61 Q
+    Answer: E89
+    Feature value: 0.0270
+  Example 5:
+    Context: E22 T2 E33 SEP E7 T3 E59 SEP E20 T4 E16 SEP E8 T8 E29 SEP E43 T4 E62 SEP E28 T8 E70 SEP T3 E7
+    Query: T3 E7 Q
+    Answer: E59
+    Feature value: 0.0334
+  Example 6:
+    Context: E24 T0 E37 SEP E69 T6 E25 SEP E69 T9 E3 SEP E85 T6 E70 SEP E43 T7 E53 SEP T6 E69
+    Query: T6 E69 Q
+    Answer: E25
+    Feature value: 0.0026
+  Example 7:
+    Context: E73 T4 E24 SEP E38 T3 E41 SEP E38 T5 E32 SEP E70 T6 E78 SEP E28 T5 E26 SEP T5 E38
+    Query: T5 E38 Q
+    Answer: E32
+    Feature value: 0.0079
+  Example 8:
+    Context: E97 T6 E14 SEP E57 T6 E19 SEP E52 T2 E11 SEP E92 T2 E64 SEP E73 T7 E12 SEP E57 T3 E84 SEP E44 T6 E76 SEP T6 E57
+    Query: T6 E57 Q
+    Answer: E19
+    Feature value: 0.0908
+  Example 9:
+    Context: E88 T6 E79 SEP E58 T2 E20 SEP E1 T5 E45 SEP E14 T2 E91 SEP E14 T0 E64 SEP E88 T3 E94 SEP T2 E14
+    Query: T2 E14 Q
+    Answer: E91
+    Feature value: 0.0370
+  Example 10:
+    Context: E93 T3 E90 SEP E78 T7 E65 SEP E38 T9 E98 SEP E8 T4 E30 SEP E78 T4 E24 SEP T7 E78
+    Query: T7 E78 Q
+    Answer: E65
+    Feature value: 0.0047
+
+--- Feature 604 ---
+  Total activations: 6926
+  Activation range: 0.0003 to 0.7345
+  Mean activation: 0.5989
+  Example 1:
+    Context: E24 T0 E29 SEP E90 T3 E0 SEP E52 T3 E14 SEP E38 T7 E15 SEP E20 T1 E6 SEP E12 T5 E14 SEP E2 T6 E13 SEP E41 T6 E25 SEP T5 E12
+    Query: T5 E12 Q
+    Answer: E14
+    Feature value: 0.6086
+  Example 2:
+    Context: E63 T9 E19 SEP E47 T9 E58 SEP E60 T0 E1 SEP E97 T5 E11 SEP E27 T2 E83 SEP E18 T8 E70 SEP E97 T1 E16 SEP E83 T0 E84 SEP T5 E97
+    Query: T5 E97 Q
+    Answer: E11
+    Feature value: 0.6040
+  Example 3:
+    Context: E36 T1 E89 SEP E59 T4 E18 SEP E59 T0 E24 SEP E96 T0 E97 SEP E7 T8 E90 SEP E81 T5 E64 SEP E34 T1 E38 SEP E31 T5 E8 SEP T0 E59
+    Query: T0 E59 Q
+    Answer: E24
+    Feature value: 0.6277
+  Example 4:
+    Context: E86 T1 E91 SEP E92 T2 E95 SEP E10 T6 E23 SEP E9 T0 E58 SEP E96 T1 E47 SEP E57 T6 E74 SEP E14 T2 E91 SEP E72 T7 E63 SEP T1 E96
+    Query: T1 E96 Q
+    Answer: E47
+    Feature value: 0.6463
+  Example 5:
+    Context: E96 T2 E20 SEP E77 T5 E62 SEP E90 T0 E60 SEP E73 T5 E31 SEP E16 T3 E28 SEP E48 T7 E54 SEP E97 T5 E12 SEP E73 T7 E89 SEP T0 E90
+    Query: T0 E90 Q
+    Answer: E60
+    Feature value: 0.5893
+  Example 6:
+    Context: E33 T2 E27 SEP E20 T1 E58 SEP E6 T2 E97 SEP E13 T7 E37 SEP E92 T3 E20 SEP E61 T6 E58 SEP E45 T1 E43 SEP E54 T4 E20 SEP T1 E45
+    Query: T1 E45 Q
+    Answer: E43
+    Feature value: 0.6045
+  Example 7:
+    Context: E10 T4 E25 SEP E55 T0 E3 SEP E10 T6 E49 SEP E34 T3 E94 SEP E40 T8 E63 SEP E37 T5 E72 SEP E47 T0 E21 SEP E31 T6 E1 SEP T0 E47
+    Query: T0 E47 Q
+    Answer: E21
+    Feature value: 0.5942
+  Example 8:
+    Context: E72 T5 E61 SEP E21 T0 E1 SEP E59 T9 E58 SEP E47 T2 E37 SEP E22 T1 E35 SEP E59 T2 E48 SEP E80 T0 E86 SEP E8 T6 E1 SEP T9 E59
+    Query: T9 E59 Q
+    Answer: E58
+    Feature value: 0.6190
+  Example 9:
+    Context: E81 T3 E40 SEP E74 T1 E40 SEP E82 T5 E13 SEP E80 T5 E90 SEP E83 T2 E10 SEP E73 T6 E76 SEP E94 T6 E13 SEP E55 T8 E93 SEP T5 E82
+    Query: T5 E82 Q
+    Answer: E13
+    Feature value: 0.5462
+  Example 10:
+    Context: E68 T7 E13 SEP E92 T0 E57 SEP E74 T6 E92 SEP E2 T8 E82 SEP E41 T5 E23 SEP E69 T9 E84 SEP E43 T5 E10 SEP E85 T9 E31 SEP T9 E85
+    Query: T9 E85 Q
+    Answer: E31
+    Feature value: 0.5226
+
+--- Feature 1023 ---
+  Total activations: 6771
+  Activation range: 0.0000 to 0.0541
+  Mean activation: 0.0119
+  Example 1:
+    Context: E29 T2 E93 SEP E64 T7 E35 SEP E46 T7 E93 SEP E70 T9 E68 SEP E99 T8 E69 SEP E3 T5 E64 SEP E71 T2 E17 SEP T2 E71
+    Query: T2 E71 Q
+    Answer: E17
+    Feature value: 0.0028
+  Example 2:
+    Context: E55 T4 E64 SEP E78 T6 E57 SEP E5 T7 E72 SEP E8 T4 E5 SEP E40 T8 E89 SEP E58 T2 E31 SEP E72 T0 E57 SEP T2 E58
+    Query: T2 E58 Q
+    Answer: E31
+    Feature value: 0.0178
+  Example 3:
+    Context: E31 T3 E82 SEP E12 T5 E73 SEP E12 T2 E25 SEP E1 T2 E91 SEP E1 T4 E73 SEP E81 T5 E9 SEP E94 T2 E43 SEP T2 E12
+    Query: T2 E12 Q
+    Answer: E25
+    Feature value: 0.0096
+  Example 4:
+    Context: E72 T8 E71 SEP E79 T9 E73 SEP E5 T5 E69 SEP E81 T7 E40 SEP E31 T4 E97 SEP E31 T7 E99 SEP E12 T8 E56 SEP T7 E31
+    Query: T7 E31 Q
+    Answer: E99
+    Feature value: 0.0175
+  Example 5:
+    Context: E89 T1 E9 SEP E57 T5 E67 SEP E28 T9 E94 SEP E17 T2 E88 SEP E65 T3 E55 SEP E28 T2 E50 SEP E60 T6 E30 SEP T9 E28
+    Query: T9 E28 Q
+    Answer: E94
+    Feature value: 0.0106
+  Example 6:
+    Context: E81 T6 E60 SEP E68 T7 E56 SEP E94 T7 E36 SEP E81 T9 E1 SEP E68 T0 E68 SEP E6 T9 E14 SEP E76 T5 E69 SEP T7 E68
+    Query: T7 E68 Q
+    Answer: E56
+    Feature value: 0.0070
+  Example 7:
+    Context: E15 T1 E61 SEP E71 T6 E96 SEP E52 T9 E76 SEP E71 T0 E1 SEP E36 T7 E44 SEP E85 T1 E12 SEP E48 T8 E22 SEP T0 E71
+    Query: T0 E71 Q
+    Answer: E1
+    Feature value: 0.0228
+  Example 8:
+    Context: E52 T4 E49 SEP E34 T4 E1 SEP E86 T8 E52 SEP E47 T0 E29 SEP E4 T8 E52 SEP E56 T3 E54 SEP E47 T7 E26 SEP T7 E47
+    Query: T7 E47 Q
+    Answer: E26
+    Feature value: 0.0342
+  Example 9:
+    Context: E14 T6 E22 SEP E15 T7 E8 SEP E18 T2 E83 SEP E80 T0 E22 SEP E96 T6 E33 SEP E14 T7 E62 SEP T2 E18
+    Query: T2 E18 Q
+    Answer: E83
+    Feature value: 0.0036
+  Example 10:
+    Context: E88 T6 E47 SEP E90 T9 E79 SEP E94 T6 E45 SEP E96 T6 E71 SEP E94 T3 E79 SEP E47 T5 E86 SEP T6 E94
+    Query: T6 E94 Q
+    Answer: E45
+    Feature value: 0.0018
+Features saved to layer_1_sae_features_d1024.pt
+
+✅ SAE training and feature extraction completed!
