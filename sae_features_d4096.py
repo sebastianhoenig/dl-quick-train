@@ -2,12 +2,6 @@
 
 SAE_DIM = 4096
 
-# Available trainer types:
-# - StandardTrainer: Standard SAE trainer with L1 penalty
-# - GatedSAETrainer: Gated SAE trainer
-# - GatedAnnealTrainer: Gated SAE with annealing
-# - PAnnealTrainer: P-annealing trainer
-
 """### Train SAE on Toy Transformer using run_pipeline for w&b logging and parallel training"""
 
 import torch
@@ -22,7 +16,6 @@ import json
 from huggingface_hub import hf_hub_download
 from dl_quick_train.pipeline import run_pipeline
 from dictionary_learning.trainers.standard import StandardTrainer
-from dictionary_learning.trainers import GatedSAETrainer, GatedAnnealTrainer, PAnnealTrainer
 from dictionary_learning import AutoEncoder, utils
 
 try:
@@ -185,181 +178,6 @@ def collate_fn(batch):
         target[i, q_pos.item()] = int(label)
     return toks, target
 
-def create_sae_trainer_configs(layers_to_train, sae_dim=SAE_DIM, device="cuda", trainer_types=None, custom_params=None):
-    """Create trainer configurations for multiple SAEs on different layers with different trainer types"""
-    if trainer_types is None:
-        trainer_types = ["StandardTrainer"]
-    
-    if custom_params is None:
-        custom_params = {}
-    
-    trainer_configs = []
-    
-    # Trainer class mapping
-    trainer_classes = {
-        "StandardTrainer": StandardTrainer,
-        "GatedSAETrainer": GatedSAETrainer,
-        "GatedAnnealTrainer": GatedAnnealTrainer,
-        "PAnnealTrainer": PAnnealTrainer,
-    }
-    
-    # Default parameters for each trainer type
-    default_params = {
-        "StandardTrainer": {
-            "lr": 1e-4,
-            "l1_penalty": 1e-1,
-            "warmup_steps": 1000,
-            "sparsity_warmup_steps": 2000,
-        },
-        "GatedSAETrainer": {
-            "lr": 1e-4,
-            "warmup_steps": 1000,
-            "sparsity_warmup_steps": 2000,
-        },
-        "GatedAnnealTrainer": {
-            "lr": 1e-4,
-            "warmup_steps": 1000,
-            "sparsity_warmup_steps": 2000,
-        },
-        "PAnnealTrainer": {
-            "lr": 1e-4,
-            "warmup_steps": 1000,
-            "sparsity_warmup_steps": 2000,
-        }
-    }
-    
-    for layer in layers_to_train:
-        for trainer_type in trainer_types:
-            if trainer_type not in trainer_classes:
-                print(f"Warning: Unknown trainer type '{trainer_type}', skipping...")
-                continue
-                
-            trainer_class = trainer_classes[trainer_type]
-            
-            # Start with base configuration
-            config = {
-                "trainer": trainer_class,
-                "steps": 100_000,
-                "activation_dim": 256,  # d_model
-                "dict_size": sae_dim,
-                "layer": layer,
-                "lm_name": f"entity_binding_model_layer_{layer}",
-                "wandb_name": f"{trainer_type}_L{layer}_D{sae_dim}"
-            }
-            
-            # Add default parameters for this trainer type
-            config.update(default_params[trainer_type])
-            
-            # Apply custom parameters if provided
-            if trainer_type in custom_params:
-                config.update(custom_params[trainer_type])
-            
-            trainer_configs.append(config)
-    
-    return trainer_configs
-
-def create_preset_configs(preset_name="balanced"):
-    """Create preset configurations for common use cases"""
-    presets = {
-        "balanced": {
-            "StandardTrainer": {"lr": 1e-4, "l1_penalty": 1e-1},
-            "GatedSAETrainer": {"lr": 1e-4},
-            "GatedAnnealTrainer": {"lr": 1e-4},
-            "PAnnealTrainer": {"lr": 1e-4}
-        },
-        "aggressive": {
-            "StandardTrainer": {"lr": 5e-4, "l1_penalty": 5e-1},
-            "GatedSAETrainer": {"lr": 5e-4},
-            "GatedAnnealTrainer": {"lr": 5e-4},
-            "PAnnealTrainer": {"lr": 5e-4}
-        },
-        "conservative": {
-            "StandardTrainer": {"lr": 5e-5, "l1_penalty": 5e-2},
-            "GatedSAETrainer": {"lr": 5e-5},
-            "GatedAnnealTrainer": {"lr": 5e-5},
-            "PAnnealTrainer": {"lr": 5e-5}
-        }
-    }
-    
-    if preset_name not in presets:
-        print(f"Warning: Unknown preset '{preset_name}', using 'balanced'")
-        preset_name = "balanced"
-    
-    return presets[preset_name]
-
-def compare_trainer_configs(configs):
-    """Compare different trainer configurations and print a summary"""
-    print("=== Trainer Configuration Comparison ===\n")
-    
-    if not configs:
-        print("No configurations to compare.")
-        return
-    
-    # Group by trainer type
-    by_type = {}
-    for config in configs:
-        # Handle different possible structures of config
-        if isinstance(config, dict):
-            if 'trainer' in config:
-                if hasattr(config['trainer'], '__name__'):
-                    trainer_name = config['trainer'].__name__
-                else:
-                    trainer_name = str(config['trainer'])
-                if trainer_name not in by_type:
-                    by_type[trainer_name] = []
-                by_type[trainer_name].append(config)
-            else:
-                # If no trainer key, try to infer from other fields
-                if 'wandb_name' in config:
-                    # Extract trainer type from wandb_name
-                    wandb_name = config['wandb_name']
-                    if '_L' in wandb_name:
-                        trainer_name = wandb_name.split('_L')[0]
-                        if trainer_name not in by_type:
-                            by_type[trainer_name] = []
-                        by_type[trainer_name].append(config)
-                    else:
-                        # Fallback to generic name
-                        if 'Unknown' not in by_type:
-                            by_type['Unknown'] = []
-                        by_type['Unknown'].append(config)
-                else:
-                    # Fallback to generic name
-                    if 'Unknown' not in by_type:
-                        by_type['Unknown'] = []
-                    by_type['Unknown'].append(config)
-        else:
-            # Handle non-dict configs
-            if 'Unknown' not in by_type:
-                by_type['Unknown'] = []
-            by_type['Unknown'].append(config)
-    
-    for trainer_name, configs_list in by_type.items():
-        print(f"{trainer_name}:")
-        for config in configs_list:
-            if isinstance(config, dict):
-                layer = config.get('layer', 'N/A')
-                lr = config.get('lr', 'N/A')
-                
-                # Trainer-specific parameters
-                specific_params = []
-                
-                # StandardTrainer parameters
-                if 'l1_penalty' in config:
-                    specific_params.append(f"l1_penalty={config['l1_penalty']}")
-                
-                # Common parameters
-                if 'warmup_steps' in config:
-                    specific_params.append(f"warmup_steps={config['warmup_steps']}")
-                if 'sparsity_warmup_steps' in config:
-                    specific_params.append(f"sparsity_warmup_steps={config['sparsity_warmup_steps']}")
-                
-                specific_str = f" ({', '.join(specific_params)})" if specific_params else ""
-                print(f"  Layer {layer}: lr={lr}{specific_str}")
-            else:
-                print(f"  {config}")
-        print()
-
 # Create custom dataset wrapper for run_pipeline
 class CustomDatasetWrapper:
     def __init__(self, dataset, collate_fn, batch_size=64):
@@ -387,8 +205,8 @@ class CustomDatasetWrapper:
             self.iterator = iter(DataLoader(self.dataset, batch_size=self.batch_size, collate_fn=self.collate_fn))
             return next(self.iterator)
 
-def train_saes_with_pipeline(layers_to_train=[1], sae_dim=SAE_DIM, use_wandb=True, trainer_types=None, custom_params=None):
-    """Train multiple SAEs using run_pipeline with different trainer types"""
+def train_sae_with_pipeline(layer_to_train=1, sae_dim=SAE_DIM, use_wandb=True):
+    """Train a single SAE using run_pipeline"""
     
     try:
         # Load model
@@ -406,9 +224,22 @@ def train_saes_with_pipeline(layers_to_train=[1], sae_dim=SAE_DIM, use_wandb=Tru
         model.load_state_dict(state_dict)
         print("Model loaded successfully.")
         
-        # Create trainer configurations
-        trainer_configs = create_sae_trainer_configs(layers_to_train, sae_dim, device, trainer_types, custom_params)
-        print(f"Created {len(trainer_configs)} trainer configurations")
+        # Create simple trainer configuration for single SAE
+        trainer_config = {
+            "trainer": StandardTrainer,
+            "steps": 100_000,
+            "activation_dim": 256,  # d_model
+            "dict_size": sae_dim,
+            "layer": layer_to_train,
+            "lm_name": f"entity_binding_model_layer_{layer_to_train}",
+            "wandb_name": f"StandardTrainer_L{layer_to_train}_D{sae_dim}",
+            "lr": 1e-4,
+            "l1_penalty": 1e-1,
+            "warmup_steps": 1000,
+            "sparsity_warmup_steps": 2000,
+        }
+        
+        print(f"Created trainer configuration for layer {layer_to_train}")
         
         # Wrap our custom dataset
         wrapped_dataset = CustomDatasetWrapper(train_dataset, collate_fn, batch_size=64)
@@ -420,42 +251,42 @@ def train_saes_with_pipeline(layers_to_train=[1], sae_dim=SAE_DIM, use_wandb=Tru
         # Test GPU memory before training
         if device.type == 'cuda':
             print(f"GPU memory before training: {torch.cuda.memory_allocated(device) / 1024**2:.2f} MB")
+        
         # Define submodule based on the layer to train
-        # For transformer_lens, submodules are typically like 'blocks.{layer}.hook_mlp_out' or similar
-        # Here, we assume MLP output hook for each layer
-        submodule = f"blocks.{layers_to_train[0]}.hook_resid_post"
+        submodule = f"blocks.{layer_to_train}.hook_resid_post"
         print(f"Using submodule: {submodule}")
+        
         # Run pipeline
         try:
             run_ids = run_pipeline(
-                trainer_configs,
-                device=str(device),  # Convert device object to string for pipeline compatibility
-                model_name="custom",  # We'll use our custom model
+                [trainer_config],  # Single config in a list
+                device=str(device),
+                model_name="custom",
                 dataset_name="custom",
-                submodule=submodule,  # Add the missing submodule parameter
+                submodule=submodule,
                 steps=10_000,  # Reduced for testing
                 batch_size=64,
                 seq_len=64,
-                use_wandb=False,  # Disable wandb to avoid multiprocessing issues
+                use_wandb=use_wandb,
                 use_transformer_lens=True,
-                wandb_entity="iamsusie-columbia-university",  # Replace with your entity
+                wandb_entity="iamsusie-columbia-university",
                 wandb_project="sae_lens_training",
                 save_dir="./sae_checkpoints",
                 log_steps=500,
                 verbose=True,
-                save_steps=[5_000, 10_000],  # Save checkpoints at these steps
-                custom_model=model,  # Pass our custom model
+                save_steps=[5_000, 10_000],
+                custom_model=model,
                 custom_dataset=wrapped_dataset
             )
             
-            return run_ids, trainer_configs, model
+            return run_ids, trainer_config, model
         except Exception as e:
             print(f"Error in run_pipeline: {e}")
             print("Returning None for run_ids and continuing...")
-            return [], trainer_configs, model
+            return [], trainer_config, model
         
     except Exception as e:
-        print(f"Error in train_saes_with_pipeline: {e}")
+        print(f"Error in train_sae_with_pipeline: {e}")
         import traceback
         traceback.print_exc()
         raise
@@ -560,9 +391,9 @@ def main():
     """Main function to run SAE training and feature extraction"""
     
     try:
-        # Configuration
-        layers_to_train = [0, 1]  # Can be extended to [0, 1] for multiple layers
-        use_wandb = True  # Set to False if you don't want w&b logging
+        # Configuration - single layer
+        layer_to_train = 1  # Train on layer 1
+        use_wandb = True
         
         # Get the global device
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -574,30 +405,14 @@ def main():
         if device.type == 'cuda':
             print(f"GPU memory before main: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
         
-        # Choose which trainer types to use - removing problematic trainers due to compatibility issues
-        trainer_types = [
-            "StandardTrainer",
-            "GatedSAETrainer",
-            "GatedAnnealTrainer",
-            "PAnnealTrainer"
-        ]
-        
         print("Starting SAE training with pipeline...")
-        print(f"Using trainer types: {trainer_types}")
+        print(f"Training SAE on layer {layer_to_train}")
         
-        
-        # Create configurations with preset parameters
-        preset_name = "balanced"  # Options: "balanced", "aggressive", "conservative"
-        custom_params = create_preset_configs(preset_name)
-        print(f"Using preset: {preset_name}")
-        
-        # Train SAEs
-        run_ids, trainer_configs, model = train_saes_with_pipeline(
-            layers_to_train=layers_to_train,
+        # Train SAE
+        run_ids, trainer_config, model = train_sae_with_pipeline(
+            layer_to_train=layer_to_train,
             sae_dim=SAE_DIM,
-            use_wandb=use_wandb,
-            trainer_types=trainer_types,
-            custom_params=custom_params
+            use_wandb=use_wandb
         )
         
         if run_ids:
@@ -607,95 +422,56 @@ def main():
         
         # Verify that checkpoints were created
         print("\nVerifying checkpoint creation...")
-        for i, layer in enumerate(layers_to_train):
-            checkpoint_dir = f"./sae_checkpoints/trainer_{i}/checkpoints/"
-            if os.path.exists(checkpoint_dir):
-                checkpoints = [f for f in os.listdir(checkpoint_dir) if f.endswith('.pt')]
-                print(f"Layer {layer} (trainer_{i}): Found {len(checkpoints)} checkpoints: {checkpoints}")
-            else:
-                print(f"Layer {layer} (trainer_{i}): No checkpoints directory found")
-        
-        # Check if any checkpoints exist at all
-        all_checkpoints = []
-        for i in range(len(trainer_configs)):
-            checkpoint_dir = f"./sae_checkpoints/trainer_{i}/checkpoints/"
-            if os.path.exists(checkpoint_dir):
-                checkpoints = [f for f in os.listdir(checkpoint_dir) if f.endswith('.pt')]
-                all_checkpoints.extend([(i, f) for f in checkpoints])
-        
-        if not all_checkpoints:
-            print("\n⚠️  WARNING: No checkpoints were created during training!")
-            print("This suggests the training failed or was interrupted before reaching the first save step (40,000)")
-            print("Check for errors in the training output above.")
+        checkpoint_dir = f"./sae_checkpoints/trainer_0/checkpoints/"
+        if os.path.exists(checkpoint_dir):
+            checkpoints = [f for f in os.listdir(checkpoint_dir) if f.endswith('.pt')]
+            print(f"Layer {layer_to_train}: Found {len(checkpoints)} checkpoints: {checkpoints}")
         else:
-            print(f"\n✅ Successfully created {len(all_checkpoints)} checkpoints during training")
-    
-        # Debug: Print what trainer_configs contains
-        print(f"\nDebug: trainer_configs type: {type(trainer_configs)}")
-        print(f"Debug: trainer_configs length: {len(trainer_configs) if trainer_configs else 'None'}")
-        if trainer_configs:
-            print(f"Debug: First config type: {type(trainer_configs[0])}")
-            if isinstance(trainer_configs[0], dict):
-                print(f"Debug: First config keys: {list(trainer_configs[0].keys())}")
-            else:
-                print(f"Debug: First config: {trainer_configs[0]}")
+            print(f"Layer {layer_to_train}: No checkpoints directory found")
         
-        # Show configuration comparison
-        if trainer_configs is not None:
-            try:
-                compare_trainer_configs(trainer_configs)
-            except Exception as e:
-                print(f"Warning: Could not compare trainer configs: {e}")
-                print("Continuing with feature extraction...")
-        else:
-            print("Warning: No trainer configs returned from pipeline")
-        
-        # Extract features for each trained SAE
+        # Extract features for the trained SAE
         try:
-            for i, layer in enumerate(layers_to_train):
-                print(f"\nExtracting features for layer {layer}...")
-                
-                # Look for any available checkpoint
-                checkpoint_dir = f"./sae_checkpoints/trainer_{i}/checkpoints/"
-                if os.path.exists(checkpoint_dir):
-                    checkpoints = [f for f in os.listdir(checkpoint_dir) if f.endswith('.pt')]
-                    if checkpoints:
-                        # Use the latest checkpoint (highest step number)
-                        checkpoints.sort(key=lambda x: int(x.split('_')[1].split('.')[0]))
-                        latest_checkpoint = checkpoints[-1]
-                        sae_path = os.path.join(checkpoint_dir, latest_checkpoint)
-                        print(f"Using checkpoint: {latest_checkpoint}")
-                    else:
-                        print(f"Warning: No checkpoints found in {checkpoint_dir}, skipping feature extraction for layer {layer}")
-                        continue
+            print(f"\nExtracting features for layer {layer_to_train}...")
+            
+            # Look for available checkpoint
+            if os.path.exists(checkpoint_dir):
+                checkpoints = [f for f in os.listdir(checkpoint_dir) if f.endswith('.pt')]
+                if checkpoints:
+                    # Use the latest checkpoint (highest step number)
+                    checkpoints.sort(key=lambda x: int(x.split('_')[1].split('.')[0]))
+                    latest_checkpoint = checkpoints[-1]
+                    sae_path = os.path.join(checkpoint_dir, latest_checkpoint)
+                    print(f"Using checkpoint: {latest_checkpoint}")
                 else:
-                    print(f"Warning: Checkpoint directory not found: {checkpoint_dir}, skipping feature extraction for layer {layer}")
-                    continue
+                    print(f"Warning: No checkpoints found in {checkpoint_dir}, skipping feature extraction")
+                    return
+            else:
+                print(f"Warning: Checkpoint directory not found: {checkpoint_dir}, skipping feature extraction")
+                return
+            
+            # Extract features
+            features_dict = extract_sae_features(layer_to_train, sae_path, val_loader, device, model)
+            
+            if features_dict is not None:
+                # Analyze features
+                analysis = analyze_features(features_dict)
                 
-                # Extract features
-                features_dict = extract_sae_features(layer, sae_path, val_loader, device, model)
+                # Save features and analysis
+                save_path = f"layer_{layer_to_train}_sae_features_d{SAE_DIM}.pt"
+                torch.save({
+                    'features': features_dict['features'],
+                    'reconstructions': features_dict['reconstructions'],
+                    'labels': features_dict['labels'],
+                    'analysis': analysis
+                }, save_path)
                 
-                if features_dict is not None:
-                    # Analyze features
-                    analysis = analyze_features(features_dict)
-                    
-                    # Save features and analysis
-                    save_path = f"layer_{layer}_sae_features_d{SAE_DIM}.pt"
-                    torch.save({
-                        'features': features_dict['features'],
-                        'reconstructions': features_dict['reconstructions'],
-                        'labels': features_dict['labels'],
-                        'analysis': analysis
-                    }, save_path)
-                    
-                    print(f"Features saved to {save_path}")
-                else:
-                    print(f"Warning: Could not extract features for layer {layer}")
+                print(f"Features saved to {save_path}")
+            else:
+                print(f"Warning: Could not extract features for layer {layer_to_train}")
             
             print("\n✅ SAE training and feature extraction completed!")
         except Exception as e:
             print(f"Warning: Error during feature extraction: {e}")
-            print("Continuing...")
             import traceback
             traceback.print_exc()
         
@@ -738,7 +514,8 @@ if __name__ == "__main__":
             os.environ['CUDA_VISIBLE_DEVICES'] = '0'
             os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
             print("Set CUDA environment variables")
-        # Run main function with device and val_loader
+        
+        # Run main function
         main()
     except Exception as e:
         print(f"Error in main execution: {e}")

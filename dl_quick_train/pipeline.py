@@ -284,57 +284,11 @@ def run_pipeline(
             print(f"Warning: Got None batch at step {step}, skipping...")
             continue
             
-        # Debug: Print batch info for first few steps
-        if step < 3:
-            print(f"Step {step}: Batch type: {type(batch)}, Batch device: {batch.device if hasattr(batch, 'device') else 'N/A'}")
-            if isinstance(batch, (tuple, list)):
-                print(f"Step {step}: Batch[0] device: {batch[0].device if hasattr(batch[0], 'device') else 'N/A'}")
-            
         # Use CUDA stream if available, otherwise no stream
-        if stream is not None:
-            with torch.cuda.stream(stream):
-                with torch.no_grad():
-                    if use_transformer_lens:
-                        # Debug: Check device before and after moving to device
-                        if step < 3:
-                            print(f"Step {step}: Moving batch to device {torch_device}")
-                            print(f"Step {step}: Batch device before: {batch.device if hasattr(batch, 'device') else 'N/A'}")
-                        
-                        batch_device = batch.to(torch_device)
-                        
-                        if step < 3:
-                            print(f"Step {step}: Batch device after: {batch_device.device if hasattr(batch_device, 'device') else 'N/A'}")
-                        
-                        _, cache = model.run_with_cache(
-                            batch_device,
-                            names_filter=[submodule],
-                            stop_at_layer=stop_at_layer,
-                        )
-                        act = cache[submodule]
-                        
-                        # Debug: Check activation device
-                        if step < 3:
-                            print(f"Step {step}: Activation device: {act.device}")
-                            print(f"Step {step}: Activation shape: {act.shape}")
-                    else:
-                        with model.trace(
-                            batch.to(torch_device), invoker_args={"max_length": seq_len}
-                        ):
-                            h = submodule_ref.output.save()
-                            submodule_ref.output.stop()
-                        act = h.value[0]
-        else:
+        with torch.cuda.stream(stream):
             with torch.no_grad():
                 if use_transformer_lens:
-                    # Debug: Check device before and after moving to device
-                    if step < 3:
-                        print(f"Step {step}: Moving batch to device {torch_device}")
-                        print(f"Step {step}: Batch device before: {batch.device if hasattr(batch, 'device') else 'N/A'}")
-                    
-                    batch_device = batch.to(torch_device)
-                    
-                    if step < 3:
-                        print(f"Step {step}: Batch device after: {batch_device.device if hasattr(batch_device, 'device') else 'N/A'}")
+                    batch_device = batch.to(torch_device) 
                     
                     _, cache = model.run_with_cache(
                         batch_device,
@@ -342,11 +296,6 @@ def run_pipeline(
                         stop_at_layer=stop_at_layer,
                     )
                     act = cache[submodule]
-                    
-                    # Debug: Check activation device
-                    if step < 3:
-                        print(f"Step {step}: Activation device: {act.device}")
-                        print(f"Step {step}: Activation shape: {act.shape}")
                 else:
                     with model.trace(
                         batch.to(torch_device), invoker_args={"max_length": seq_len}
@@ -365,7 +314,6 @@ def run_pipeline(
                     log_queues=log_queues,
                     verbose=verbose,
                 )
-
             if save_steps is not None and step in save_steps:
                 for idx, (trainer_dir, trainer) in enumerate(zip(save_dirs, trainers)):
                     if trainer_dir is None:
@@ -376,7 +324,6 @@ def run_pipeline(
                         k: v.cpu() for k, v in trainer.ae.state_dict().items()
                     }
                     path = os.path.join(trainer_dir, "checkpoints", f"ae_{step}.pt")
-                    print(f"Saving checkpoint to {path}")
                     torch.save(
                         checkpoint,
                         path,
@@ -385,11 +332,6 @@ def run_pipeline(
                         log_queues[idx].put(("artifact", path))
 
             for tnr in trainers:
-                # Debug: Check trainer device
-                if step < 3:
-                    print(f"Step {step}: Trainer AE device: {next(tnr.ae.parameters()).device}")
-                    print(f"Step {step}: Activation device for trainer: {act.device}")
-                
                 tnr.update(step, act)
 
     if use_wandb:
