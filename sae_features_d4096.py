@@ -328,7 +328,9 @@ def extract_sae_features(layer, sae_path, val_loader, device, model):
                 features_np = features[0, :, :].cpu().numpy() if features.device.type != 'cpu' else features[0, :, :].numpy()
                 for i, row in enumerate(features_np):
                     active_indices = np.where(row > 0)[0]
+                    active_values = row[active_indices]
                     print(f"Row {i}: Indices > 0: {active_indices.tolist()}")
+                    print(f"        Feature Values: {active_values.tolist()}")
                 
                 # Print first batch tokens and labels in readable format
                 print("\n=== First Tokens and Labels ===")
@@ -585,8 +587,8 @@ def main():
         # Verify that checkpoints were created or find existing ones
         print("\nVerifying checkpoint availability...")
         checkpoint_dir = f"./sae_checkpoints_{LAYER_TO_TRAIN}_hook_resid_post"
-        if os.path.exists(checkpoint_dir):
-            checkpoints = [f for f in os.listdir(checkpoint_dir) if f.endswith('.pt')]
+        if os.path.exists(f"{checkpoint_dir}/trainer_0/checkpoints/"):
+            checkpoints = [f for f in os.listdir(f"{checkpoint_dir}/trainer_0/checkpoints/") if f.endswith('.pt')]
             print(f"Layer {LAYER_TO_TRAIN}: Found {len(checkpoints)} checkpoints: {checkpoints}")
         else:
             print(f"Layer {LAYER_TO_TRAIN}: No checkpoints directory found")
