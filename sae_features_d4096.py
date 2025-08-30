@@ -1,6 +1,8 @@
 # !pip install transformer-lens dictionary-learning
 
-SAE_DIM = 1024 #16384 #1024 # 4096
+SAE_DIM = 4096 #16384 #1024 # 4096
+LAYER_TO_TRAIN = 0  # also edit pipeline.py if changing this
+TRAIN_LAST_LAYER = True if LAYER_TO_TRAIN == 1 else False 
 
 """### Train SAE on Toy Transformer using run_pipeline for w&b logging and parallel training"""
 
@@ -205,25 +207,10 @@ class CustomDatasetWrapper:
             self.iterator = iter(DataLoader(self.dataset, batch_size=self.batch_size, collate_fn=self.collate_fn))
             return next(self.iterator)
 
-def train_sae_with_pipeline(layer_to_train=1, sae_dim=SAE_DIM, use_wandb=True):
+def train_sae_with_pipeline(model, layer_to_train=1, sae_dim=SAE_DIM, use_wandb=True, checkpoint_dir=None):
     """Train a single SAE using run_pipeline"""
     
     try:
-        # Load model
-        model = build_model(N_LAYERS, HEADS)
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = model.to(device)
-        print(f"Moving model to device: {device}")
-        
-        # Load pretrained weights
-        REPO_ID = "sebastianhoenig/2L2H_Final"
-        FILENAME = "D256_L2_H2_attnOnly1_lr5.0e-04_wd0.01.pt"
-        weights_path = hf_hub_download(repo_id=REPO_ID, filename=FILENAME)
-        pretrained_weights = torch.load(weights_path, map_location=device, weights_only=True)
-        state_dict = pretrained_weights["model"]
-        model.load_state_dict(state_dict)
-        print("Model loaded successfully.")
-        
         # Create simple trainer configuration for single SAE
         trainer_config = {
             "trainer": StandardTrainer,
@@ -246,7 +233,6 @@ def train_sae_with_pipeline(layer_to_train=1, sae_dim=SAE_DIM, use_wandb=True):
 
         print("Starting pipeline training...")
         print(f"Pipeline device: {device}")
-        print(f"Model device: {next(model.parameters()).device}")
         
         # Test GPU memory before training
         if device.type == 'cuda':
@@ -264,26 +250,26 @@ def train_sae_with_pipeline(layer_to_train=1, sae_dim=SAE_DIM, use_wandb=True):
                 model_name="custom",
                 dataset_name="custom",
                 submodule=submodule,
-                steps= 30_000,  # Reduced for testing
+                steps= 20_000,  # Reduced for testing
                 batch_size=64,
                 seq_len=64,
                 use_wandb=use_wandb,
                 use_transformer_lens=True,
                 wandb_entity="iamsusie-columbia-university",
                 wandb_project="sae_lens_training",
-                save_dir="./sae_checkpoints",
+                save_dir=checkpoint_dir,
                 log_steps=500,
                 verbose=True,
-                save_steps=[20_000, 29_000],
+                save_steps=[19_000],
                 custom_model=model,
                 custom_dataset=wrapped_dataset
             )
             
-            return run_ids, trainer_config, model
+            return run_ids, trainer_config
         except Exception as e:
             print(f"Error in run_pipeline: {e}")
             print("Returning None for run_ids and continuing...")
-            return [], trainer_config, model
+            return [], trainer_config
         
     except Exception as e:
         print(f"Error in train_sae_with_pipeline: {e}")
@@ -323,7 +309,7 @@ def extract_sae_features(layer, sae_path, val_loader, device, model):
     
     sae.eval()
     model.eval()
-    print_once = True
+    print_once = False if TRAIN_LAST_LAYER else True
     with torch.no_grad():
         for toks, labels in val_loader:
             toks = toks.to(torch_device)
@@ -332,7 +318,8 @@ def extract_sae_features(layer, sae_path, val_loader, device, model):
             # Get activations from the model
             cache = model.run_with_cache(toks, names_filter=[act_name])[1]
             acts = cache[act_name]  # shape: [batch, seq, d_model]
-            
+            if TRAIN_LAST_LAYER:
+                acts = acts[:, -1, :]
             # Extract features
             features = sae.encode(acts)
             reconstruction = sae.decode(features)
@@ -398,7 +385,10 @@ def extract_sae_features(layer, sae_path, val_loader, device, model):
                     print(f"  Tokens: {' '.join(readable_seq)}")
                 
                 print_once = False
-            all_features.append(features[:, -1, :].cpu()) # last token feature
+            if TRAIN_LAST_LAYER:
+                all_features.append(features.cpu())
+            else:
+                all_features.append(features[:, -1, :].cpu()) # last token feature
             all_activations.append(acts.cpu())
             all_reconstructions.append(reconstruction.cpu())
             all_labels.append(labels.cpu())
@@ -447,6 +437,12 @@ def analyze_features(features_dict, val_loader=None):
     if val_loader is not None:
         print(f"\n=== Examples for Top 10 Features ===")
         show_feature_examples(all_features, top_features.indices, val_loader)
+        # Also show examples for 3 random features
+        num_features = all_features.shape[1]
+        np.random.seed(12345)
+        random_feature_indices = np.random.choice(num_features, 3, replace=False)
+        print(f"\n=== Examples for 3 Random Features: {random_feature_indices.tolist()} ===")
+        show_feature_examples(all_features, torch.tensor(random_feature_indices), val_loader)
     
     return {
         'feature_frequency': feature_frequency,
@@ -559,7 +555,6 @@ def main():
     
     try:
         # Configuration - single layer
-        layer_to_train = 1  # Train on layer 1
         use_wandb = True
         
         # Get the global device
@@ -572,36 +567,40 @@ def main():
         if device.type == 'cuda':
             print(f"GPU memory before main: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
         
-        # Check if ae_29000.pt already exists
-        if os.path.exists("sae_checkpoints/trainer_0/checkpoints/ae_29000.pt"):
-            print("✅ ae_29000.pt already exists. Skipping training pipeline.")
-            print("Loading existing checkpoint and proceeding with feature extraction...")
-            
-            # Load model without training
-            model = build_model(N_LAYERS, HEADS)
-            model = model.to(device)
-            print(f"Moving model to device: {device}")
-            
-            # Load pretrained weights
-            REPO_ID = "sebastianhoenig/2L2H_Final"
-            FILENAME = "D256_L2_H2_attnOnly1_lr5.0e-04_wd0.01.pt"
-            weights_path = hf_hub_download(repo_id=REPO_ID, filename=FILENAME)
-            pretrained_weights = torch.load(weights_path, map_location=device, weights_only=True)
-            state_dict = pretrained_weights["model"]
-            model.load_state_dict(state_dict)
-            print("Model loaded successfully.")
-            
-            # Set run_ids to empty list since no training was done
-            run_ids = []
+        # Load model
+        model = build_model(N_LAYERS, HEADS)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = model.to(device)
+        print(f"Moving model to device: {device}")
+        
+        # Load pretrained weights
+        REPO_ID = "sebastianhoenig/2L2H_Final"
+        FILENAME = "D256_L2_H2_attnOnly1_lr5.0e-04_wd0.01.pt"
+        weights_path = hf_hub_download(repo_id=REPO_ID, filename=FILENAME)
+        pretrained_weights = torch.load(weights_path, map_location=device, weights_only=True)
+        state_dict = pretrained_weights["model"]
+        model.load_state_dict(state_dict)
+        print("Model loaded successfully.")
+        print(f"Model device: {next(model.parameters()).device}")
+        # Verify that checkpoints were created or find existing ones
+        print("\nVerifying checkpoint availability...")
+        checkpoint_dir = f"./sae_checkpoints_{LAYER_TO_TRAIN}_hook_resid_post"
+        if os.path.exists(checkpoint_dir):
+            checkpoints = [f for f in os.listdir(checkpoint_dir) if f.endswith('.pt')]
+            print(f"Layer {LAYER_TO_TRAIN}: Found {len(checkpoints)} checkpoints: {checkpoints}")
         else:
+            print(f"Layer {LAYER_TO_TRAIN}: No checkpoints directory found")
+
             print("Starting SAE training with pipeline...")
-            print(f"Training SAE on layer {layer_to_train}")
+            print(f"Training SAE on layer {LAYER_TO_TRAIN}")
             
             # Train SAE
-            run_ids, trainer_config, model = train_sae_with_pipeline(
-                layer_to_train=layer_to_train,
+            run_ids, trainer_config = train_sae_with_pipeline(
+                model=model,
+                layer_to_train=LAYER_TO_TRAIN,
                 sae_dim=SAE_DIM,
-                use_wandb=use_wandb
+                use_wandb=use_wandb,
+                checkpoint_dir=checkpoint_dir
             )
             
             if run_ids:
@@ -609,44 +608,36 @@ def main():
             else:
                 print("Training completed but no run IDs returned")
         
-        # Verify that checkpoints were created or find existing ones
-        print("\nVerifying checkpoint availability...")
-        checkpoint_dir = f"./sae_checkpoints/trainer_0/checkpoints/"
-        if os.path.exists(checkpoint_dir):
-            checkpoints = [f for f in os.listdir(checkpoint_dir) if f.endswith('.pt')]
-            print(f"Layer {layer_to_train}: Found {len(checkpoints)} checkpoints: {checkpoints}")
-        else:
-            print(f"Layer {layer_to_train}: No checkpoints directory found")
-        
         # Extract features for the trained SAE
         try:
-            print(f"\nExtracting features for layer {layer_to_train}...")
+            print(f"\nExtracting features for layer {LAYER_TO_TRAIN}...")
             
             # Look for available checkpoint
-            if os.path.exists(checkpoint_dir):
-                checkpoints = [f for f in os.listdir(checkpoint_dir) if f.endswith('.pt')]
+            model_checkpoint_dir = f"{checkpoint_dir}/trainer_0/checkpoints/"
+            if os.path.exists(model_checkpoint_dir):
+                checkpoints = [f for f in os.listdir(model_checkpoint_dir) if f.endswith('.pt')]
                 if checkpoints:
                     # Use the latest checkpoint (highest step number)
                     checkpoints.sort(key=lambda x: int(x.split('_')[1].split('.')[0]))
                     latest_checkpoint = checkpoints[-1]
-                    sae_path = os.path.join(checkpoint_dir, latest_checkpoint)
+                    sae_path = os.path.join(model_checkpoint_dir, latest_checkpoint)
                     print(f"Using checkpoint: {latest_checkpoint}")
                 else:
-                    print(f"Warning: No checkpoints found in {checkpoint_dir}, skipping feature extraction")
+                    print(f"Warning: No checkpoints found in {model_checkpoint_dir}, skipping feature extraction")
                     return
             else:
-                print(f"Warning: Checkpoint directory not found: {checkpoint_dir}, skipping feature extraction")
+                print(f"Warning: Checkpoint directory not found: {model_checkpoint_dir}, skipping feature extraction")
                 return
             
             # Extract features
-            features_dict = extract_sae_features(layer_to_train, sae_path, val_loader, device, model)
+            features_dict = extract_sae_features(LAYER_TO_TRAIN, sae_path, val_loader, device, model)
             
             if features_dict is not None:
                 # Analyze features
                 analysis = analyze_features(features_dict, val_loader)
                 
                 # Save features and analysis
-                save_path = f"layer_{layer_to_train}_sae_features_d{SAE_DIM}.pt"
+                save_path = f"layer_{LAYER_TO_TRAIN}_sae_features_d{SAE_DIM}.pt"
                 torch.save({
                     'features': features_dict['features'],
                     'reconstructions': features_dict['reconstructions'],
@@ -656,7 +647,7 @@ def main():
                 
                 print(f"Features saved to {save_path}")
             else:
-                print(f"Warning: Could not extract features for layer {layer_to_train}")
+                print(f"Warning: Could not extract features for layer {LAYER_TO_TRAIN}")
             
             print("\n✅ SAE training and feature extraction completed!")
         except Exception as e:
