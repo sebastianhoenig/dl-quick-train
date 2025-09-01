@@ -287,7 +287,7 @@ def run_pipeline(
                         h = submodule_ref.output.save()
                         submodule_ref.output.stop()
                     act = h.value[0]
-            # act = act[:, -1, :]
+            act = act[:, -1, :] # TODO comment for layer 0
             if (use_wandb or verbose) and step % log_steps == 0:
                 log_stats(
                     trainers,
