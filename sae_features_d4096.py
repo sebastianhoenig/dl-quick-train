@@ -1,7 +1,7 @@
 # !pip install transformer-lens dictionary-learning
 
 SAE_DIM = 4096 #16384 #1024 # 4096
-LAYER_TO_TRAIN = 0  # also edit pipeline.py if changing this
+LAYER_TO_TRAIN = 1  # also edit pipeline.py if changing this
 TRAIN_LAST_LAYER = True if LAYER_TO_TRAIN == 1 else False 
 
 """### Train SAE on Toy Transformer using run_pipeline for w&b logging and parallel training"""
@@ -250,7 +250,7 @@ def train_sae_with_pipeline(model, layer_to_train=1, sae_dim=SAE_DIM, use_wandb=
                 model_name="custom",
                 dataset_name="custom",
                 submodule=submodule,
-                steps= 20_000,  # Reduced for testing
+                steps= 16_000,  # Reduced for testing
                 batch_size=64,
                 seq_len=64,
                 use_wandb=use_wandb,
@@ -260,7 +260,7 @@ def train_sae_with_pipeline(model, layer_to_train=1, sae_dim=SAE_DIM, use_wandb=
                 save_dir=checkpoint_dir,
                 log_steps=500,
                 verbose=True,
-                save_steps=[19_000],
+                save_steps=[15_000],
                 custom_model=model,
                 custom_dataset=wrapped_dataset
             )
@@ -303,6 +303,8 @@ def extract_sae_features(layer, sae_path, val_loader, device, model):
     
     # Extract features
     all_features = []
+    if TRAIN_LAST_LAYER:
+        all_tokens_features = []
     all_activations = []
     all_reconstructions = []
     all_labels = []
@@ -389,6 +391,7 @@ def extract_sae_features(layer, sae_path, val_loader, device, model):
                 print_once = False
             if TRAIN_LAST_LAYER:
                 all_features.append(features.cpu())
+                all_tokens_features.append(features.cpu())
             else:
                 all_features.append(features[:, -1, :].cpu()) # last token feature
             all_activations.append(acts.cpu())
@@ -401,12 +404,16 @@ def extract_sae_features(layer, sae_path, val_loader, device, model):
     all_reconstructions = torch.cat(all_reconstructions, dim=0)
     all_labels = torch.cat(all_labels, dim=0)
     
-    return {
+    res = {
         'features': all_features,
         'activations': all_activations,
         'reconstructions': all_reconstructions,
         'labels': all_labels
     }
+    if TRAIN_LAST_LAYER:
+        res['tokens_features'] = all_tokens_features
+
+    return res
 
 def analyze_features(features_dict, val_loader=None):
     """Analyze extracted SAE features"""
