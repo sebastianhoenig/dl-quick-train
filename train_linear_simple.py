@@ -91,7 +91,7 @@ def extract_sae_features_for_training(model, sae, data_loader, device, max_sampl
     return all_features, all_labels
 
 def train_linear_model(train_features, train_labels, val_features, val_labels, 
-                      num_epochs=100, lr=0.001, device='cpu', batch_size=256):
+                      num_epochs=100, lr=0.001, device='cpu', batch_size=256, l1_lambda=0.0):
     """Train linear classifier on SAE features"""
     
     num_classes = E  # Number of entities to predict
@@ -105,6 +105,7 @@ def train_linear_model(train_features, train_labels, val_features, val_labels,
     print(f"  Learning rate: {lr}")
     print(f"  Epochs: {num_epochs}")
     print(f"  Batch size: {batch_size}")
+    print(f"  L1 regularization: {l1_lambda}")
     
     # Create model
     model = LinearClassifier(input_dim, num_classes).to(device)
@@ -138,6 +139,14 @@ def train_linear_model(train_features, train_labels, val_features, val_labels,
             optimizer.zero_grad()
             outputs = model(batch_features)
             loss = criterion(outputs, batch_labels)
+            
+            # Add L1 regularization if specified
+            if l1_lambda > 0:
+                l1_penalty = torch.tensor(0., device=device)
+                for param in model.parameters():
+                    l1_penalty += torch.norm(param, 1)
+                loss = loss + l1_lambda * l1_penalty
+            
             loss.backward()
             optimizer.step()
             
@@ -277,7 +286,7 @@ def main():
     
     linear_model, best_val_acc, final_train_acc = train_linear_model(
         train_features, train_labels, val_features, val_labels,
-        num_epochs=150, lr=0.001, device=device, batch_size=512
+        num_epochs=150, lr=0.001, device=device, batch_size=512, l1_lambda=0.001
     )
     
     # Evaluate model
@@ -319,6 +328,7 @@ def main():
             'num_classes': E,
             'lr': 0.001,
             'epochs': 150,
+            'l1_lambda': 0.001,
             'train_samples': len(train_features),
             'val_samples': len(val_features)
         }
