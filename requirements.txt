@@ -6,3 +6,5 @@ tqdm
 transformers
 transformer-lens
 wandb
+matplotlib
+seaborn

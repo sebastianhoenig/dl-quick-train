@@ -66,8 +66,17 @@ def load_transformer_and_sae(device='cpu'):
     # Load SAE
     print("Loading SAE...")
     sae = AutoEncoder(activation_dim=d_model, dict_size=SAE_DIM).to(device)
-    sae_path = "sae_checkpoints_1_hook_resid_post/trainer_0/checkpoints/ae_15000.pt"
-    
+    import glob
+    import re
+    checkpoint_dir = "sae_checkpoints_1_hook_resid_post/trainer_0/checkpoints/"
+    checkpoint_files = glob.glob(os.path.join(checkpoint_dir, "ae_*.pt"))
+    if not checkpoint_files:
+        raise FileNotFoundError(f"No SAE checkpoints found in {checkpoint_dir}")
+    def extract_step_num(path):
+        match = re.search(r"ae_(\d+)\.pt", os.path.basename(path))
+        return int(match.group(1)) if match else -1
+    sae_path = max(checkpoint_files, key=extract_step_num)
+    print(f"Using SAE checkpoint: {sae_path}")    
     if not os.path.exists(sae_path):
         raise FileNotFoundError(f"SAE checkpoint not found at {sae_path}")
     

@@ -250,7 +250,7 @@ def train_sae_with_pipeline(model, layer_to_train=1, sae_dim=SAE_DIM, use_wandb=
                 model_name="custom",
                 dataset_name="custom",
                 submodule=submodule,
-                steps= 16_000,  # Reduced for testing
+                steps= 20_000,  # Reduced for testing
                 batch_size=64,
                 seq_len=64,
                 use_wandb=use_wandb,
@@ -260,7 +260,7 @@ def train_sae_with_pipeline(model, layer_to_train=1, sae_dim=SAE_DIM, use_wandb=
                 save_dir=checkpoint_dir,
                 log_steps=500,
                 verbose=True,
-                save_steps=[15_000],
+                save_steps=[19_500],
                 custom_model=model,
                 custom_dataset=wrapped_dataset
             )
@@ -320,8 +320,22 @@ def extract_sae_features(layer, sae_path, val_loader, device, model):
             # Get activations from the model
             cache = model.run_with_cache(toks, names_filter=[act_name])[1]
             acts = cache[act_name]  # shape: [batch, seq, d_model]
+            
             if TRAIN_LAST_LAYER:
-                acts = acts[:, -1, :]
+            # Extract activations at question mark token position instead of last token
+                batch_size = acts.shape[0]
+                acts_at_q = torch.zeros(batch_size, acts.shape[2], device=acts.device)
+                for i in range(batch_size):
+                    # Find Q token position in this sequence
+                    q_pos = (toks[i] == Q).nonzero(as_tuple=False)
+                    if q_pos.numel() > 0:
+                        q_pos = q_pos[0].item()
+                        acts_at_q[i] = acts[i, q_pos, :]
+                    else:
+                        raise ValueError(f"Q token not found in sequence {toks[i]}")
+                        # Fallback to last token if Q not found
+                        # acts_at_q[i] = acts[i, -1, :]
+                acts = acts_at_q
             # Extract features
             features = sae.encode(acts)
             reconstruction = sae.decode(features)
@@ -393,7 +407,20 @@ def extract_sae_features(layer, sae_path, val_loader, device, model):
                 all_features.append(features.cpu())
                 all_tokens_features.append(features.cpu())
             else:
-                all_features.append(features[:, -1, :].cpu()) # last token feature
+                # all_features should keep features at the query token position only
+                batch_size = features.shape[0]
+                features_at_q = torch.zeros(batch_size, features.shape[2], device=features.device)
+                for i in range(batch_size):
+                    # Find Q token position in this sequence
+                    q_pos = (toks[i] == Q).nonzero(as_tuple=False)
+                    if q_pos.numel() > 0:
+                        q_pos = q_pos[0].item()
+                        features_at_q[i] = features[i, q_pos, :]
+                    else:
+                        # Fallback to last token if Q not found
+                        features_at_q[i] = features[i, -1, :]
+                all_features.append(features_at_q.cpu())
+                
             all_activations.append(acts.cpu())
             all_reconstructions.append(reconstruction.cpu())
             all_labels.append(labels.cpu())
@@ -430,9 +457,9 @@ def analyze_features(features_dict, val_loader=None):
     # Feature activation frequency
     feature_activations = (all_features > 0).float()
     feature_frequency = feature_activations.mean(dim=0)
-    print("feature_frequency", feature_frequency)
+    # print("feature_frequency", feature_frequency)
     feature_sum = feature_activations.sum(dim=0)
-    print("feature_sum", feature_sum)
+    # print("feature_sum", feature_sum)
     print(f"\nTop 10 most active features:")
     top_features = feature_sum.topk(10)
     for i, (idx, freq) in enumerate(zip(top_features.indices, top_features.values)):

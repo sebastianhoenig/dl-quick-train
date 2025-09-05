@@ -20,24 +20,25 @@ PAD = E + T + 2
 IGNORE_INDEX = -100
 
 def load_features():
-    """Load both layer 0 token features and layer 1 final token features"""
+    """Load both layer 0 and layer 1 SAE features"""
     print("Loading features...")
     
-    # Load Layer 0 token-level features
+    # Load Layer 0 SAE features
     try:
-        layer_0_data = torch.load("layer_0_token_features_d4096.pt", map_location='cpu', weights_only=False)
-        print(f"✓ Loaded Layer 0 token features: {len(layer_0_data['token_features'])} examples")
-        print(f"  Average sequence length: {layer_0_data['metadata']['avg_seq_len']:.1f} tokens")
+        layer_0_data = torch.load("layer_0_sae_features_d4096.pt", map_location='cpu', weights_only=False)
+        print(f"✓ Loaded Layer 0 SAE features: {layer_0_data['features'].shape}")
+        print(f"  Labels shape: {layer_0_data['labels'].shape}")
     except FileNotFoundError:
-        print("❌ Layer 0 token features not found. Run extract_layer0_token_features.py first")
+        print("❌ Layer 0 SAE features not found")
         layer_0_data = None
     
-    # Load Layer 1 final token features
+    # Load Layer 1 SAE features
     try:
         layer_1_data = torch.load("layer_1_sae_features_d4096.pt", map_location='cpu', weights_only=False)
-        print(f"✓ Loaded Layer 1 final token features: {layer_1_data['features'].shape}")
+        print(f"✓ Loaded Layer 1 SAE features: {layer_1_data['features'].shape}")
+        print(f"  Labels shape: {layer_1_data['labels'].shape}")
     except FileNotFoundError:
-        print("❌ Layer 1 features not found")
+        print("❌ Layer 1 SAE features not found")
         layer_1_data = None
     
     return layer_0_data, layer_1_data
@@ -59,16 +60,26 @@ def identify_discriminative_features(layer_0_data, layer_1_data, max_entity_perc
     
     discriminative_features = {'layer_0': set(), 'layer_1': set()}
     
-    # Get all unique entities from the data
-    all_entities = set()
-    if layer_0_data and 'label_entities' in layer_0_data:
-        all_entities.update(layer_0_data['label_entities'])
-    elif layer_0_data:
-        # Fallback: extract from labels
-        for labels in layer_0_data['labels']:
+    # Extract label entities from labels tensor
+    def extract_label_entities(labels_tensor):
+        """Extract label entities from labels tensor"""
+        label_entities = []
+        for labels in labels_tensor:
             label_positions = (labels != IGNORE_INDEX).nonzero(as_tuple=False)
             if len(label_positions) > 0:
-                all_entities.add(labels[label_positions[0]].item())
+                label_entities.append(labels[label_positions[0]].item())
+            else:
+                label_entities.append(-1)  # Invalid label
+        return label_entities
+    
+    # Get all unique entities from the data
+    all_entities = set()
+    if layer_0_data:
+        label_entities = extract_label_entities(layer_0_data['labels'])
+        all_entities.update(label_entities)
+    elif layer_1_data:
+        label_entities = extract_label_entities(layer_1_data['labels'])
+        all_entities.update(label_entities)
     
     # Remove invalid entities
     all_entities = {e for e in all_entities if e != -1 and e != IGNORE_INDEX}
@@ -83,35 +94,21 @@ def identify_discriminative_features(layer_0_data, layer_1_data, max_entity_perc
         print(f"\n  📊 Analyzing Layer 0 features...")
         feature_to_entities = defaultdict(set)
         
-        num_examples = len(layer_0_data['token_features'])
+        num_examples = len(layer_0_data['features'])
+        label_entities = extract_label_entities(layer_0_data['labels'])
+        
         for example_idx in range(num_examples):
-            # Get label entity
-            if 'label_entities' in layer_0_data:
-                label_entity = layer_0_data['label_entities'][example_idx]
-            else:
-                labels = layer_0_data['labels'][example_idx]
-                label_positions = (labels != IGNORE_INDEX).nonzero(as_tuple=False)
-                if len(label_positions) > 0:
-                    label_entity = labels[label_positions[0]].item()
-                else:
-                    continue
+            label_entity = label_entities[example_idx]
             
             if label_entity == -1 or label_entity == IGNORE_INDEX:
                 continue
             
-            # Get token features for this example
-            token_features = layer_0_data['token_features'][example_idx]  # [seq_len, 4096]
-            
-            # Collect all active features for this entity
-            active_features = set()
-            for pos in range(len(token_features)):
-                token_feat = token_features[pos]
-                active_indices = torch.nonzero(token_feat > 0).squeeze(-1)
-                if len(active_indices) > 0:
-                    active_features.update(active_indices.tolist())
+            # Get features for this example
+            features = layer_0_data['features'][example_idx]  # [4096]
+            active_indices = torch.nonzero(features > 0).squeeze(-1)
             
             # Map features to entities
-            for feature_idx in active_features:
+            for feature_idx in active_indices.tolist():
                 feature_to_entities[feature_idx].add(label_entity)
         
         # Filter discriminative features
@@ -131,13 +128,10 @@ def identify_discriminative_features(layer_0_data, layer_1_data, max_entity_perc
         feature_to_entities = defaultdict(set)
         
         num_examples = len(layer_1_data['features'])
+        label_entities = extract_label_entities(layer_1_data['labels'])
+        
         for example_idx in range(num_examples):
-            # Get label entity (need to extract from layer_0_data or use a different method)
-            if layer_0_data and 'label_entities' in layer_0_data and example_idx < len(layer_0_data['label_entities']):
-                label_entity = layer_0_data['label_entities'][example_idx]
-            else:
-                # Skip if we can't determine the label entity
-                continue
+            label_entity = label_entities[example_idx]
             
             if label_entity == -1 or label_entity == IGNORE_INDEX:
                 continue
@@ -219,8 +213,8 @@ def parse_sequence_with_positions(sequence: torch.Tensor) -> Dict:
     }
 
 def analyze_entity_token_features(layer_0_data, layer_1_data, target_entities: List[int], discriminative_features: Dict = None) -> Dict:
-    """Analyze token-level features for specific label entities across all token positions"""
-    print(f"\n🎯 Analyzing token features for label entities: {target_entities}")
+    """Analyze SAE features for specific label entities"""
+    print(f"\n🎯 Analyzing SAE features for label entities: {target_entities}")
     
     results = defaultdict(lambda: {'layer_0': [], 'layer_1': []})
     
@@ -228,82 +222,63 @@ def analyze_entity_token_features(layer_0_data, layer_1_data, target_entities: L
         print("❌ No feature data available")
         return {}
     
-    num_examples = len(layer_0_data['token_features']) if layer_0_data else len(layer_1_data['features'])
+    # Extract label entities from labels tensor
+    def extract_label_entities(labels_tensor):
+        """Extract label entities from labels tensor"""
+        label_entities = []
+        for labels in labels_tensor:
+            label_positions = (labels != IGNORE_INDEX).nonzero(as_tuple=False)
+            if len(label_positions) > 0:
+                label_entities.append(labels[label_positions[0]].item())
+            else:
+                label_entities.append(-1)  # Invalid label
+        return label_entities
+    
+    num_examples = len(layer_0_data['features']) if layer_0_data else len(layer_1_data['features'])
+    if layer_0_data:
+        label_entities = extract_label_entities(layer_0_data['labels'])
+    else: # layer_1_data:
+        label_entities = extract_label_entities(layer_1_data['labels'])
     
     for example_idx in range(num_examples):
         # Get the label entity for this example
-        if layer_0_data and 'label_entities' in layer_0_data:
-            label_entity = layer_0_data['label_entities'][example_idx]
-        else:
-            # Fallback: extract from labels
-            if layer_0_data:
-                labels = layer_0_data['labels'][example_idx]
-                label_positions = (labels != IGNORE_INDEX).nonzero(as_tuple=False)
-                if len(label_positions) > 0:
-                    label_entity = labels[label_positions[0]].item()
-                else:
-                    continue
-            else:
-                continue
+        if layer_0_data:
+            label_entity = label_entities[example_idx]
+        else: # layer_1_data:
+            label_entity = label_entities[example_idx]
         
         # Skip if this label entity is not in our target list
         if label_entity not in target_entities:
             continue
         
-        # Parse the sequence for context
+        # Process Layer 0 SAE features (final features, not token-level)
         if layer_0_data:
-            sequence = layer_0_data['sequences'][example_idx]
-            parsed = parse_sequence_with_positions(sequence)
-            if parsed is None:
-                continue
-        
-        # Process Layer 0 token features - ALL tokens, but associate with label entity
-        if layer_0_data:
-            token_features = layer_0_data['token_features'][example_idx]  # [seq_len, 4096]
+            features = layer_0_data['features'][example_idx]  # [4096]
+            active_features = torch.nonzero(features > 0).squeeze(-1)
             
-            entity_data = {
-                'example_idx': example_idx,
-                'label_entity': label_entity,
-                'parsed': parsed,
-                'all_token_features': [],  # Features for ALL tokens in sequence
-                'label_entity_positions': []  # Positions where label entity actually appears
-            }
-            
-            # Store features for ALL token positions (filtered by discriminative features)
-            for pos in range(len(token_features)):
-                token_feat = token_features[pos]  # [4096]
-                active_features = torch.nonzero(token_feat > 0).squeeze(-1)
+            if len(active_features) > 0:
+                # Filter to only discriminative features if provided
+                if discriminative_features and 'layer_0' in discriminative_features:
+                    discriminative_mask = torch.tensor([f in discriminative_features['layer_0'] for f in active_features.tolist()])
+                    if discriminative_mask.any():
+                        active_features = active_features[discriminative_mask]
+                        feature_values = features[active_features]
+                    else:
+                        continue  # Skip this example if no discriminative features
+                else:
+                    feature_values = features[active_features]
                 
                 if len(active_features) > 0:
-                    # Filter to only discriminative features if provided
-                    if discriminative_features and 'layer_0' in discriminative_features:
-                        discriminative_mask = torch.tensor([f in discriminative_features['layer_0'] for f in active_features.tolist()])
-                        if discriminative_mask.any():
-                            active_features = active_features[discriminative_mask]
-                            feature_values = token_feat[active_features]
-                        else:
-                            continue  # Skip this token if no discriminative features
-                    else:
-                        feature_values = token_feat[active_features]
+                    sorted_indices = torch.argsort(feature_values, descending=True)
                     
-                    if len(active_features) > 0:
-                        sorted_indices = torch.argsort(feature_values, descending=True)
-                        
-                        entity_data['all_token_features'].append({
-                            'position': pos,
-                            'token_id': sequence[pos].item() if pos < len(sequence) else PAD,
-                            'top_features': active_features[sorted_indices].tolist(),
-                            'top_values': feature_values[sorted_indices].tolist(),
-                            'is_label_entity': sequence[pos].item() == label_entity if pos < len(sequence) else False
-                        })
-            
-            # Also track where the label entity specifically appears
-            if label_entity in parsed['entity_positions']:
-                entity_data['label_entity_positions'] = parsed['entity_positions'][label_entity]
-            
-            results[label_entity]['layer_0'].append(entity_data)
+                    results[label_entity]['layer_0'].append({
+                        'example_idx': example_idx,
+                        'label_entity': label_entity,
+                        'top_features': active_features[sorted_indices].tolist(),
+                        'top_values': feature_values[sorted_indices].tolist()
+                    })
         
-        # Process Layer 1 final token features (associate with label entity, filtered by discriminative features)
+        # Process Layer 1 SAE features (final features)
         if layer_1_data:
             features = layer_1_data['features'][example_idx]  # [4096]
             active_features = torch.nonzero(features > 0).squeeze(-1)
@@ -327,15 +302,14 @@ def analyze_entity_token_features(layer_0_data, layer_1_data, target_entities: L
                         'example_idx': example_idx,
                         'label_entity': label_entity,
                         'top_features': active_features[sorted_indices].tolist(),
-                        'top_values': feature_values[sorted_indices].tolist(),
-                        'parsed': parsed if layer_0_data else None
+                        'top_values': feature_values[sorted_indices].tolist()
                     })
     
     return dict(results)
 
-def plot_entity_token_analysis(entity_results: Dict, save_path: str = "entity_token_analysis_filtered.png"):
-    """Create visualization for entity token analysis"""
-    print("\n📊 Creating entity token analysis plots...")
+def plot_entity_token_analysis(entity_results: Dict, save_path: str = "entity_sae_analysis_filtered.png"):
+    """Create visualization for entity SAE analysis"""
+    print("\n📊 Creating entity SAE analysis plots...")
     
     num_entities = len(entity_results)
     if num_entities == 0:
@@ -347,49 +321,29 @@ def plot_entity_token_analysis(entity_results: Dict, save_path: str = "entity_to
         axes = axes.reshape(1, -1)
     
     for i, (entity, data) in enumerate(entity_results.items()):
-        # Layer 0 - Token-level features (all positions for label entity)
+        # Layer 0 - SAE features
         ax0 = axes[i, 0]
         
         if data['layer_0']:
-            # Collect features from all token positions for this label entity
-            all_token_features = []
-            label_entity_features = []  # Features specifically when the token IS the label entity
-            position_info = []
-            
+            # Collect features from all examples for this label entity
+            all_features = []
             for example in data['layer_0']:
-                for token_data in example['all_token_features']:
-                    # Take top 5 features per token
-                    top_n = min(5, len(token_data['top_features']))
-                    all_token_features.extend(token_data['top_features'][:top_n])
-                    
-                    # Track features specifically when the token is the label entity
-                    if token_data['is_label_entity']:
-                        label_entity_features.extend(token_data['top_features'][:top_n])
-                    
-                    position_info.append(token_data['position'])
+                top_n = min(10, len(example['top_features']))
+                all_features.extend(example['top_features'][:top_n])
             
-            if all_token_features:
-                # Show both all features and label-entity-specific features
-                feature_counts = Counter(all_token_features)
-                label_feature_counts = Counter(label_entity_features)
+            if all_features:
+                feature_counts = Counter(all_features)
                 top_features = feature_counts.most_common(15)
                 
                 if top_features:
                     features, counts = zip(*top_features)
-                    bars = ax0.bar(range(len(features)), counts, alpha=0.7, color='skyblue', label='All tokens')
-                    
-                    # Overlay label entity features
-                    label_counts = [label_feature_counts.get(f, 0) for f in features]
-                    bars2 = ax0.bar(range(len(features)), label_counts, alpha=0.8, color='red', label='Label entity tokens')
-                    
-                    ax0.set_title(f'Label Entity {entity} - Layer 0 Filtered Token Features\n'
-                                f'({len(data["layer_0"])} examples, {len(all_token_features)} total activations, '
-                                f'{len(label_entity_features)} from label entity)')
+                    bars = ax0.bar(range(len(features)), counts, alpha=0.7, color='skyblue')
+                    ax0.set_title(f'Label Entity {entity} - Layer 0 SAE Features\n'
+                                f'({len(data["layer_0"])} examples)')
                     ax0.set_xlabel('Feature Index (Rank)')
                     ax0.set_ylabel('Activation Frequency')
                     ax0.set_xticks(range(len(features)))
                     ax0.set_xticklabels([str(f) for f in features], rotation=45, fontsize=8)
-                    ax0.legend()
                     
                     # Add value labels for total counts
                     for bar, count in zip(bars, counts):
@@ -399,17 +353,17 @@ def plot_entity_token_analysis(entity_results: Dict, save_path: str = "entity_to
                 else:
                     ax0.text(0.5, 0.5, 'No significant features', 
                            ha='center', va='center', transform=ax0.transAxes)
-                    ax0.set_title(f'Label Entity {entity} - Layer 0 Filtered Token Features')
+                    ax0.set_title(f'Label Entity {entity} - Layer 0 SAE Features')
             else:
                 ax0.text(0.5, 0.5, 'No active features found', 
                        ha='center', va='center', transform=ax0.transAxes)
-                ax0.set_title(f'Label Entity {entity} - Layer 0 Filtered Token Features')
+                ax0.set_title(f'Label Entity {entity} - Layer 0 SAE Features')
         else:
             ax0.text(0.5, 0.5, 'No Layer 0 data', 
                    ha='center', va='center', transform=ax0.transAxes)
-            ax0.set_title(f'Label Entity {entity} - Layer 0 Filtered Token Features')
+            ax0.set_title(f'Label Entity {entity} - Layer 0 SAE Features')
         
-        # Layer 1 - Final token features (same as before)
+        # Layer 1 - SAE features
         ax1 = axes[i, 1]
         
         if data['layer_1']:
@@ -425,7 +379,7 @@ def plot_entity_token_analysis(entity_results: Dict, save_path: str = "entity_to
                 if top_features:
                     features, counts = zip(*top_features)
                     bars = ax1.bar(range(len(features)), counts, alpha=0.7, color='orange')
-                    ax1.set_title(f'Entity {entity} - Layer 1 Filtered Final Token\n'
+                    ax1.set_title(f'Entity {entity} - Layer 1 SAE Features\n'
                                 f'({len(data["layer_1"])} examples)')
                     ax1.set_xlabel('Feature Index (Rank)')
                     ax1.set_ylabel('Activation Frequency')
@@ -439,24 +393,24 @@ def plot_entity_token_analysis(entity_results: Dict, save_path: str = "entity_to
                 else:
                     ax1.text(0.5, 0.5, 'No significant features', 
                            ha='center', va='center', transform=ax1.transAxes)
-                    ax1.set_title(f'Entity {entity} - Layer 1 Filtered Final Token')
+                    ax1.set_title(f'Entity {entity} - Layer 1 SAE Features')
             else:
                 ax1.text(0.5, 0.5, 'No active features found', 
                        ha='center', va='center', transform=ax1.transAxes)
-                ax1.set_title(f'Entity {entity} - Layer 1 Filtered Final Token')
+                ax1.set_title(f'Entity {entity} - Layer 1 SAE Features')
         else:
             ax1.text(0.5, 0.5, 'No Layer 1 data', 
                    ha='center', va='center', transform=ax1.transAxes)
-            ax1.set_title(f'Entity {entity} - Layer 1 Filtered Final Token')
+            ax1.set_title(f'Entity {entity} - Layer 1 SAE Features')
     
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     print(f"✅ Plot saved to {save_path}")
 
 def print_detailed_token_analysis(entity_results: Dict):
-    """Print detailed analysis of entity token features"""
+    """Print detailed analysis of entity SAE features"""
     print("\n" + "="*80)
-    print("DETAILED ENTITY TOKEN ANALYSIS")
+    print("DETAILED ENTITY SAE ANALYSIS")
     print("="*80)
     
     for entity, data in entity_results.items():
@@ -465,61 +419,35 @@ def print_detailed_token_analysis(entity_results: Dict):
         
         # Layer 0 analysis
         if data['layer_0']:
-            print(f"\n  📊 Layer 0 (Filtered token features for label entity {entity}):")
+            print(f"\n  📊 Layer 0 (SAE features for label entity {entity}):")
             print(f"    Found in {len(data['layer_0'])} validation examples")
             
-            # Count total token positions and label entity positions
-            total_token_positions = sum(len(example['all_token_features']) 
-                                      for example in data['layer_0'])
-            label_entity_positions = sum(sum(1 for token_data in example['all_token_features'] 
-                                           if token_data['is_label_entity'])
-                                       for example in data['layer_0'])
-            
-            print(f"    Total token positions analyzed: {total_token_positions}")
-            print(f"    Positions where token IS label entity: {label_entity_positions}")
-            
-            # Aggregate features across all token positions
+            # Aggregate features across all examples
             all_features = []
-            label_entity_features = []
-            
             for example in data['layer_0']:
-                for token_data in example['all_token_features']:
-                    all_features.extend(token_data['top_features'][:5])
-                    if token_data['is_label_entity']:
-                        label_entity_features.extend(token_data['top_features'][:5])
+                all_features.extend(example['top_features'][:5])
             
             if all_features:
                 feature_counts = Counter(all_features)
-                label_feature_counts = Counter(label_entity_features)
                 top_features = feature_counts.most_common(5)
                 
-                print(f"    Top 5 most activated features (all tokens):")
+                print(f"    Top 5 most activated features:")
                 for feature_idx, count in top_features:
-                    label_count = label_feature_counts.get(feature_idx, 0)
                     percentage = count / len(all_features) * 100
-                    print(f"      Feature {feature_idx}: {count} total ({percentage:.1f}%), {label_count} from label entity")
+                    print(f"      Feature {feature_idx}: {count} activations ({percentage:.1f}%)")
             
             # Show example
             if data['layer_0']:
                 example = data['layer_0'][0]
-                parsed = example['parsed']
-                print(f"    Example context:")
-                print(f"      Facts: {parsed['facts'][:2]}{'...' if len(parsed['facts']) > 2 else ''}")
-                print(f"      Label entity {entity} appears at: {example['label_entity_positions']}")
-                
-                # Show some token-by-token breakdown
-                print(f"      Token breakdown (first few positions):")
-                for token_data in example['all_token_features'][:5]:
-                    token_id = token_data['token_id']
-                    is_label = token_data['is_label_entity']
-                    top_feat = token_data['top_features'][0] if token_data['top_features'] else 'None'
-                    print(f"        Pos {token_data['position']}: Token {token_id} {'(LABEL!)' if is_label else ''} -> Feature {top_feat}")
+                print(f"    Example features (top 5):")
+                for i, (feat_idx, value) in enumerate(zip(example['top_features'][:5], example['top_values'][:5])):
+                    print(f"      Feature {feat_idx}: {value:.4f}")
         else:
             print(f"\n  📊 Layer 0: No data available")
         
-        # Layer 1 analysis (same as before)
+        # Layer 1 analysis
         if data['layer_1']:
-            print(f"\n  📊 Layer 1 (Filtered final token features):")
+            print(f"\n  📊 Layer 1 (SAE features for label entity {entity}):")
             examples = data['layer_1']
             print(f"    Found in {len(examples)} validation examples")
             
@@ -532,23 +460,31 @@ def print_detailed_token_analysis(entity_results: Dict):
             
             print(f"    Top 5 most activated features:")
             for feature_idx, count in top_features:
-                print(f"      Feature {feature_idx}: activated {count} times")
+                percentage = count / len(all_features) * 100
+                print(f"      Feature {feature_idx}: {count} activations ({percentage:.1f}%)")
+            
+            # Show example
+            if data['layer_1']:
+                example = data['layer_1'][0]
+                print(f"    Example features (top 5):")
+                for i, (feat_idx, value) in enumerate(zip(example['top_features'][:5], example['top_values'][:5])):
+                    print(f"      Feature {feat_idx}: {value:.4f}")
         else:
             print(f"\n  📊 Layer 1: No data available")
 
 def main():
     """Main function"""
-    print("🚀 Advanced Entity Token Feature Analysis (Discriminative Features)")
+    print("🚀 Advanced Entity SAE Feature Analysis (Discriminative Features)")
     print("=" * 70)
     print("This analysis extracts DISCRIMINATIVE SAE features (≤20% entity coverage)")
-    print("for ALL token positions, organized by LABEL ENTITY (the target answer)")
+    print("for both Layer 0 and Layer 1, organized by LABEL ENTITY (the target answer)")
     print("=" * 70)
     
     # Load features
     layer_0_data, layer_1_data = load_features()
     
     if layer_0_data is None and layer_1_data is None:
-        print("❌ No feature data available. Please run the feature extraction scripts first.")
+        print("❌ No feature data available. Please run the SAE training script first.")
         return
     
     # Identify discriminative features (filter out features that activate on >20% of entities)
@@ -557,31 +493,45 @@ def main():
     # Show data structure info
     if layer_0_data:
         print(f"\n📋 Data Structure:")
-        if 'label_entities' in layer_0_data:
-            print(f"  ✓ Label entities available: {len(layer_0_data['label_entities'])} examples")
-            unique_labels = set(layer_0_data['label_entities'])
-            print(f"  ✓ Unique label entities: {len(unique_labels)} different entities")
-        else:
-            print(f"  ⚠️  Using fallback label extraction from targets")
+        print(f"  ✓ Layer 0 features: {layer_0_data['features'].shape}")
+        print(f"  ✓ Layer 0 labels: {layer_0_data['labels'].shape}")
+    
+    if layer_1_data:
+        print(f"  ✓ Layer 1 features: {layer_1_data['features'].shape}")
+        print(f"  ✓ Layer 1 labels: {layer_1_data['labels'].shape}")
+    
+    # Extract label entities to find available entities
+    def extract_label_entities(labels_tensor):
+        """Extract label entities from labels tensor"""
+        label_entities = []
+        for labels in labels_tensor:
+            label_positions = (labels != IGNORE_INDEX).nonzero(as_tuple=False)
+            if len(label_positions) > 0:
+                label_entities.append(labels[label_positions[0]].item())
+            else:
+                label_entities.append(-1)  # Invalid label
+        return label_entities
     
     # Select 5 random entities that appear as labels
-    if layer_0_data and 'label_entities' in layer_0_data:
-        available_entities = list(set(layer_0_data['label_entities']))
-        available_entities = [e for e in available_entities if e != -1]  # Remove invalid labels
-        
-        if len(available_entities) < 5:
-            target_entities = available_entities
-        else:
-            random.seed(42)
-            target_entities = random.sample(available_entities, 5)
-            target_entities.extend(range(10))
+    if layer_0_data:
+        label_entities = extract_label_entities(layer_0_data['labels'])
+        available_entities = list(set(label_entities))
+        available_entities = [e for e in available_entities if e != -1 and e != IGNORE_INDEX]  # Remove invalid labels
+    elif layer_1_data:
+        label_entities = extract_label_entities(layer_1_data['labels'])
+        available_entities = list(set(label_entities))
+        available_entities = [e for e in available_entities if e != -1 and e != IGNORE_INDEX]  # Remove invalid labels
     else:
-        # Fallback to random entities
+        available_entities = []
+    
+    if len(available_entities) < 5:
+        target_entities = available_entities
+    else:
         random.seed(42)
-        target_entities = random.sample(range(E), 5)
+        target_entities = random.sample(available_entities, 5)
     
     print(f"\n🎯 Analyzing label entities: {target_entities}")
-    print("For each entity, we analyze SAE features from ALL tokens in sequences")
+    print("For each entity, we analyze SAE features from sequences")
     print("where that entity is the target answer (label)")
     
     # Analyze features (using only discriminative features)
@@ -595,10 +545,10 @@ def main():
     print_detailed_token_analysis(entity_results)
     
     # Create plots
-    plot_entity_token_analysis(entity_results, "entity_token_feature_analysis_filtered.png")
+    plot_entity_token_analysis(entity_results, "entity_sae_analysis_filtered.png")
     
-    print("\n✅ Advanced entity token analysis complete!")
-    print("This shows how DISCRIMINATIVE SAE features (≤20% entity coverage) across ALL positions relate to specific label entities.")
+    print("\n✅ Advanced entity SAE analysis complete!")
+    print("This shows how DISCRIMINATIVE SAE features (≤20% entity coverage) relate to specific label entities.")
 
 if __name__ == "__main__":
     main()

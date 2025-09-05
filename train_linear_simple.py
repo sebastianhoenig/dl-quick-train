@@ -62,6 +62,9 @@ def extract_sae_features_for_training(model, sae, data_loader, device, max_sampl
                 q_pos = (seq == Q).nonzero(as_tuple=False).squeeze()
                 if q_pos.numel() > 0:
                     q_pos = q_pos.item()
+                    # print("Sequence:", seq)
+                    # print(f"Q position: {q_pos}")
+                    # print(f"acts shape: {acts.shape}")
                     if label_seq[q_pos] != IGNORE_INDEX:
                         # Extract activation at Q position
                         act_at_q = acts[i, q_pos, :]  # [d_model]
@@ -247,7 +250,19 @@ def main():
     # Load SAE
     print("\nLoading SAE...")
     sae = AutoEncoder(activation_dim=d_model, dict_size=SAE_DIM).to(device)
-    sae_path = "sae_checkpoints_1_hook_resid_post/trainer_0/checkpoints/ae_15000.pt"
+    import glob
+
+    checkpoint_dir = "sae_checkpoints_1_hook_resid_post/trainer_0/checkpoints/"
+    checkpoint_files = glob.glob(os.path.join(checkpoint_dir, "ae_*.pt"))
+    if not checkpoint_files:
+        raise FileNotFoundError(f"No SAE checkpoints found in {checkpoint_dir}")
+    # Extract step numbers and find the latest
+    def extract_step_num(path):
+        import re
+        match = re.search(r"ae_(\d+)\.pt", os.path.basename(path))
+        return int(match.group(1)) if match else -1
+    latest_ckpt = max(checkpoint_files, key=extract_step_num)
+    sae_path = latest_ckpt
     
     if not os.path.exists(sae_path):
         raise FileNotFoundError(f"SAE checkpoint not found at {sae_path}")
@@ -271,7 +286,7 @@ def main():
     # print("  - labels:", first_item[1]) # 53
     # return
     train_features, train_labels = extract_sae_features_for_training(
-        model, sae, train_loader, device, max_samples=50000  # Limit for memory
+        model, sae, train_loader, device, max_samples=None#50000  # Limit for memory
     )
     # Extract validation features
     print("\nExtracting validation features...")

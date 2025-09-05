@@ -16,6 +16,8 @@ from transformers import AutoTokenizer
 
 import wandb
 
+LAYER_TO_TRAIN = 1
+TRAIN_LAST_LAYER = True if LAYER_TO_TRAIN == 1 else False 
 
 def new_wandb_process(
     config,
@@ -287,7 +289,25 @@ def run_pipeline(
                         h = submodule_ref.output.save()
                         submodule_ref.output.stop()
                     act = h.value[0]
-            act = act[:, -1, :] # TODO comment for layer 0
+            if TRAIN_LAST_LAYER:
+                # Extract activations at question mark token position instead of last token
+                # Find Q token position in each sequence
+                batch_size = act.shape[0]
+                q_positions = []
+                for i in range(batch_size):
+                    # Find Q token position in this sequence
+                    q_pos = (batch[i] == 113).nonzero(as_tuple=False)  # Q = 113 (E + T + 1)
+                    if q_pos.numel() > 0:
+                        q_positions.append(q_pos[0].item())
+                    else:
+                        # Fallback to last token if Q not found
+                        q_positions.append(act.shape[1] - 1)
+                
+                # Extract activations at Q positions
+                act_at_q = torch.zeros(batch_size, act.shape[2], device=act.device)
+                for i, q_pos in enumerate(q_positions):
+                    act_at_q[i] = act[i, q_pos, :]
+                act = act_at_q
             if (use_wandb or verbose) and step % log_steps == 0:
                 log_stats(
                     trainers,
