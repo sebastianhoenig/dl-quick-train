@@ -277,6 +277,52 @@ def train_sae_with_pipeline(model, layer_to_train=1, sae_dim=SAE_DIM, use_wandb=
         traceback.print_exc()
         raise
 
+def find_separator_after_correct_entity(tokens, labels):
+    """
+    Find the separator token that comes right after the correct entity label in the context.
+    
+    Args:
+        tokens: tensor of shape [seq_len] containing the token sequence
+        labels: tensor of shape [seq_len] containing the labels (IGNORE_INDEX for non-query positions)
+    
+    Returns:
+        int: position of the separator token after the correct entity, or None if not found
+    """
+    # Find the query position (where Q token is)
+    q_pos = (tokens == Q).nonzero(as_tuple=False)
+    if q_pos.numel() == 0:
+        return None
+    q_pos = q_pos[0].item()
+    
+    # Get the correct answer (entity) from the label at query position
+    correct_entity = labels[q_pos].item()
+    if correct_entity == IGNORE_INDEX:
+        return None
+    
+    # Look through the context (before the query) to find the correct entity
+    context = tokens[:q_pos]
+    
+    # Find all positions where the correct entity appears
+    entity_positions = (context == correct_entity).nonzero(as_tuple=False).squeeze()
+    if entity_positions.numel() == 0:
+        return None
+    
+    # Handle both single position and multiple positions
+    if entity_positions.dim() == 0:
+        # Single position case
+        entity_positions = [entity_positions.item()]
+    else:
+        # Multiple positions case
+        entity_positions = entity_positions.tolist()
+    
+    # For each entity position, check if it's followed by a separator
+    for entity_pos in entity_positions:
+        # Check if the next token is a separator
+        if entity_pos + 1 < len(context) and context[entity_pos + 1] == SEP:
+            return entity_pos + 1
+    
+    return None
+
 def extract_sae_features(layer, sae_path, val_loader, device, model):
     """Extract SAE features from a trained model"""
     
@@ -380,9 +426,34 @@ def extract_sae_features(layer, sae_path, val_loader, device, model):
                     query_ent = seq[q_pos - 1].item()  # Entity (Eq)
                     answer = label[q_pos].item() if label[q_pos] != IGNORE_INDEX else "IGNORE"
                     
+                    # Find the separator position after the correct entity
+                    sep_pos = find_separator_after_correct_entity(seq, label)
+                    
                     print(f"  Tokens: {' '.join(readable_seq)} Q")
                     print(f"  Query: T{query_rel - E} E{query_ent} Q")
                     print(f"  Answer: E{answer}")
+                    if sep_pos is not None:
+                        print(f"  Separator after correct entity at position: {sep_pos}")
+                        # Show the context around the separator
+                        start_idx = max(0, sep_pos - 3)
+                        end_idx = min(len(seq), sep_pos + 2)
+                        context_around_sep = []
+                        for i in range(start_idx, end_idx):
+                            token = seq[i]
+                            marker = " <-- SEP" if i == sep_pos else ""
+                            if token < E:
+                                context_around_sep.append(f"E{token.item()}{marker}")
+                            elif token < E + T:
+                                context_around_sep.append(f"T{token.item() - E}{marker}")
+                            elif token == SEP:
+                                context_around_sep.append(f"SEP{marker}")
+                            elif token == Q:
+                                context_around_sep.append(f"Q{marker}")
+                            else:
+                                context_around_sep.append(f"UNK{token.item()}{marker}")
+                        print(f"  Context around separator: {' '.join(context_around_sep)}")
+                    else:
+                        print(f"  No separator found after correct entity")
                 else:
                     print(f"  No query token found in sequence")
                     # Still show the sequence in readable format
@@ -407,19 +478,17 @@ def extract_sae_features(layer, sae_path, val_loader, device, model):
                 all_features.append(features.cpu())
                 all_tokens_features.append(features.cpu())
             else:
-                # all_features should keep features at the query token position only
+                # all_features should keep features at the separator token position that comes after the correct entity label
                 batch_size = features.shape[0]
-                features_at_q = torch.zeros(batch_size, features.shape[2], device=features.device)
+                features_at_sep = torch.zeros(batch_size, features.shape[2], device=features.device)
                 for i in range(batch_size):
-                    # Find Q token position in this sequence
-                    q_pos = (toks[i] == Q).nonzero(as_tuple=False)
-                    if q_pos.numel() > 0:
-                        q_pos = q_pos[0].item()
-                        features_at_q[i] = features[i, q_pos, :]
+                    # Find the separator token that comes after the correct entity label
+                    sep_pos = find_separator_after_correct_entity(toks[i], labels[i])
+                    if sep_pos is not None:
+                        features_at_sep[i] = features[i, sep_pos, :]
                     else:
-                        # Fallback to last token if Q not found
-                        features_at_q[i] = features[i, -1, :]
-                all_features.append(features_at_q.cpu())
+                        raise ValueError(f"Separator after correct entity not found in sequence {toks[i]}")
+                all_features.append(features_at_sep.cpu())
                 
             all_activations.append(acts.cpu())
             all_reconstructions.append(reconstruction.cpu())
@@ -570,10 +639,17 @@ def show_feature_examples(all_features, top_feature_indices, val_loader):
                         query_ent = seq[q_pos - 1].item()  # Entity (Eq)
                         answer = label[q_pos].item() if label[q_pos] != IGNORE_INDEX else "IGNORE"
                         
+                        # Find the separator position after the correct entity
+                        sep_pos = find_separator_after_correct_entity(seq, label)
+                        
                         print(f"  Example {sample_count + 1}:")
                         print(f"    Context: {' '.join(readable_seq)}")
                         print(f"    Query: T{query_rel - E} E{query_ent} Q")
                         print(f"    Answer: E{answer}")
+                        if sep_pos is not None:
+                            print(f"    Separator after correct entity at position: {sep_pos}")
+                        else:
+                            print(f"    No separator found after correct entity")
                         print(f"    Feature value: {features_np[global_sample_idx, feature_idx]:.4f}")
                         
                         sample_count += 1

@@ -320,7 +320,8 @@ def plot_entity_token_analysis(entity_results: Dict, save_path: str = "entity_sa
     if num_entities == 1:
         axes = axes.reshape(1, -1)
     
-    for i, (entity, data) in enumerate(entity_results.items()):
+    for i, entity in enumerate(sorted(entity_results.keys())):
+        data = entity_results[entity]
         # Layer 0 - SAE features
         ax0 = axes[i, 0]
         
@@ -413,7 +414,8 @@ def print_detailed_token_analysis(entity_results: Dict):
     print("DETAILED ENTITY SAE ANALYSIS")
     print("="*80)
     
-    for entity, data in entity_results.items():
+    for entity in sorted(entity_results.keys()):
+        data = entity_results[entity]
         print(f"\n🔍 ENTITY {entity}")
         print("-" * 50)
         
@@ -512,7 +514,7 @@ def main():
                 label_entities.append(-1)  # Invalid label
         return label_entities
     
-    # Select 5 random entities that appear as labels
+    # Select entities 0 to 9 that appear as labels
     if layer_0_data:
         label_entities = extract_label_entities(layer_0_data['labels'])
         available_entities = list(set(label_entities))
@@ -524,15 +526,13 @@ def main():
     else:
         available_entities = []
     
-    if len(available_entities) < 5:
-        target_entities = available_entities
-    else:
-        random.seed(42)
-        target_entities = random.sample(available_entities, 5)
+    # Select entities 0 to 9 (if they exist in the data)
+    target_entities = [e for e in range(10) if e in available_entities]
     
-    print(f"\n🎯 Analyzing label entities: {target_entities}")
+    print(f"\n🎯 Analyzing label entities: {sorted(target_entities)}")
     print("For each entity, we analyze SAE features from sequences")
     print("where that entity is the target answer (label)")
+    print(f"Selected entities 0-9 that appear in the data: {len(target_entities)} entities found")
     
     # Analyze features (using only discriminative features)
     entity_results = analyze_entity_token_features(layer_0_data, layer_1_data, target_entities, discriminative_features)
