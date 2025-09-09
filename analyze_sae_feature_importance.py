@@ -295,35 +295,6 @@ def print_top_activating_examples(top_examples, target_features):
             print(f"     Q position: {q_pos}")
             print()
 
-def create_feature_heatmap(feature_importance_stats, entity_top_features, save_path=None):
-    """Create a heatmap showing feature importance for entities"""
-    
-    weights = feature_importance_stats['weights_matrix']  # [E, SAE_DIM]
-    
-    # Select top discriminative features and first 20 entities for visualization
-    top_features = [idx for idx, _ in feature_importance_stats['most_discriminative'][:50]]
-    entities_to_show = min(20, E)
-    
-    # Create subset matrix
-    subset_weights = weights[:entities_to_show, top_features]
-    
-    plt.figure(figsize=(12, 8))
-    sns.heatmap(subset_weights, 
-                xticklabels=[f"F{i}" for i in top_features],
-                yticklabels=[f"E{i}" for i in range(entities_to_show)],
-                cmap='RdBu_r', center=0, 
-                cbar_kws={'label': 'Weight Value'})
-    
-    plt.title('Feature Importance Heatmap\n(Top 50 Discriminative Features vs First 20 Entities)')
-    plt.xlabel('SAE Features')
-    plt.ylabel('Entities')
-    plt.tight_layout()
-    
-    if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"Heatmap saved to {save_path}")
-    
-    plt.show()
 
 def main():
     """Main analysis pipeline"""
@@ -342,12 +313,6 @@ def main():
     
     # Print analysis results
     print_feature_analysis(entity_top_features, feature_importance_stats)
-    
-    # Create heatmap
-    print("\nCreating feature importance heatmap...")
-    create_feature_heatmap(feature_importance_stats, entity_top_features, 
-                          save_path="feature_importance_heatmap.png")
-    
     # Select a few interesting features for detailed analysis
     # Choose most discriminative features
     top_discriminative = [idx for idx, _ in feature_importance_stats['most_discriminative'][:5]]
