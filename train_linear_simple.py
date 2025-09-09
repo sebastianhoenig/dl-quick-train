@@ -16,8 +16,12 @@ from tqdm import tqdm
 from sae_features_d4096 import (
     SAE_DIM, LAYER_TO_TRAIN, E, T, Q, PAD, IGNORE_INDEX, SEP,
     build_model, collate_fn, val_dataset, train_dataset,
-    N_LAYERS, HEADS, d_model, D_VOCAB
+    N_LAYERS, HEADS, d_model, D_VOCAB, find_separator_after_correct_entity
 )
+
+# Determine if we're training the last layer (dynamic calculation)
+def get_train_last_layer():
+    return True if LAYER_TO_TRAIN == 1 else False
 from dictionary_learning import AutoEncoder
 from huggingface_hub import hf_hub_download
 
@@ -50,32 +54,56 @@ def extract_sae_features_for_training(model, sae, data_loader, device, max_sampl
                 
             toks = toks.to(device)
             labels = labels.to(device)
-            # Get activations from the model at the last token position
+            # Get activations from the model
             cache = model.run_with_cache(toks, names_filter=[act_name])[1]
             acts = cache[act_name]  # shape: [batch, seq, d_model]
             
-            # For each sequence, find the Q token position and extract features there
-            for i in range(toks.size(0)):
-                seq = toks[i]
-                label_seq = labels[i]
-                # Find Q token position
-                q_pos = (seq == Q).nonzero(as_tuple=False).squeeze()
-                if q_pos.numel() > 0:
-                    q_pos = q_pos.item()
-                    # print("Sequence:", seq)
-                    # print(f"Q position: {q_pos}")
-                    # print(f"acts shape: {acts.shape}")
-                    if label_seq[q_pos] != IGNORE_INDEX:
-                        # Extract activation at Q position
-                        act_at_q = acts[i, q_pos, :]  # [d_model]
-                        feature = sae.encode(act_at_q.unsqueeze(0)).squeeze(0)  # [sae_dim]
-                        
-                        all_features.append(feature.cpu())
-                        all_labels.append(label_seq[q_pos].item())
-                        sample_count += 1
-                        
-                        if max_samples and sample_count >= max_samples:
-                            break
+            if get_train_last_layer():
+                # For each sequence, find the Q token position and extract features there
+                for i in range(toks.size(0)):
+                    seq = toks[i]
+                    label_seq = labels[i]
+                    # Find Q token position
+                    q_pos = (seq == Q).nonzero(as_tuple=False).squeeze()
+                    if q_pos.numel() > 0:
+                        q_pos = q_pos.item()
+                        if label_seq[q_pos] != IGNORE_INDEX:
+                            # Extract activation at Q position
+                            act_at_q = acts[i, q_pos, :]  # [d_model]
+                            feature = sae.encode(act_at_q.unsqueeze(0)).squeeze(0)  # [sae_dim]
+                            
+                            all_features.append(feature.cpu())
+                            all_labels.append(label_seq[q_pos].item())
+                            sample_count += 1
+                            
+                            if max_samples and sample_count >= max_samples:
+                                break
+            else:
+                # Extract features at separator position after correct entity
+                # First encode all activations
+                features = sae.encode(acts)  # shape: [batch, seq, sae_dim]
+                
+                for i in range(toks.size(0)):
+                    seq = toks[i]
+                    label_seq = labels[i]
+                    
+                    # Find Q token position to get the correct label
+                    q_pos = (seq == Q).nonzero(as_tuple=False).squeeze()
+                    if q_pos.numel() > 0:
+                        q_pos = q_pos.item()
+                        if label_seq[q_pos] != IGNORE_INDEX:
+                            # Find the separator position after the correct entity
+                            sep_pos = find_separator_after_correct_entity(seq, label_seq)
+                            if sep_pos is not None:
+                                # Extract feature at separator position
+                                feature = features[i, sep_pos, :]  # [sae_dim]
+                                
+                                all_features.append(feature.cpu())
+                                all_labels.append(label_seq[q_pos].item())
+                                sample_count += 1
+                                
+                                if max_samples and sample_count >= max_samples:
+                                    break
             
             if max_samples and sample_count >= max_samples:
                 break
@@ -85,6 +113,8 @@ def extract_sae_features_for_training(model, sae, data_loader, device, max_sampl
         
     all_features = torch.stack(all_features)
     all_labels = torch.tensor(all_labels, dtype=torch.long)
+    # print("all_labels", all_labels)
+    # print("all_features", all_features)
     
     print(f"Extracted {len(all_features)} samples")
     print(f"Feature shape: {all_features.shape}")

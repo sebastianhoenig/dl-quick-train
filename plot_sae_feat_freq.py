@@ -109,6 +109,11 @@ def analyze_entity_token_features(layer_0_data, layer_1_data, target_entities: L
         print("❌ No feature data available")
         return {}
     
+    # Track example counts
+    total_examples = 0
+    processed_examples = 0
+    entity_counts = {i: 0 for i in range(10)}  # Count examples per entity 0-9
+    
     # Extract label entities from labels tensor
     def extract_label_entities(labels_tensor):
         """Extract label entities from labels tensor"""
@@ -122,6 +127,7 @@ def analyze_entity_token_features(layer_0_data, layer_1_data, target_entities: L
         return label_entities
     
     num_examples = len(layer_0_data['features']) if layer_0_data else len(layer_1_data['features'])
+    total_examples = num_examples
     if layer_0_data:
         label_entities = extract_label_entities(layer_0_data['labels'])
     else: # layer_1_data:
@@ -137,6 +143,12 @@ def analyze_entity_token_features(layer_0_data, layer_1_data, target_entities: L
         # Skip if this label entity is not in our target list
         if label_entity not in target_entities:
             continue
+        
+        processed_examples += 1
+        
+        # Count examples per entity
+        if 0 <= label_entity <= 9:
+            entity_counts[label_entity] += 1
         
         # Process Layer 0 SAE features (final features, not token-level)
         if layer_0_data:
@@ -173,6 +185,18 @@ def analyze_entity_token_features(layer_0_data, layer_1_data, target_entities: L
                         'top_features': active_features[sorted_indices].tolist(),
                         'top_values': feature_values[sorted_indices].tolist()
                     })
+    
+    print(f"\n📊 Example Statistics:")
+    print(f"  Total examples in dataset: {total_examples}")
+    print(f"  Examples with target entities (0-9): {processed_examples}")
+    print(f"  Examples analyzed: {processed_examples}")
+    
+    print(f"\n📋 Examples per Entity Class:")
+    for entity in range(10):
+        if entity in target_entities:
+            print(f"    Entity {entity}: {entity_counts[entity]} examples")
+        else:
+            print(f"    Entity {entity}: 0 examples (not in target set)")
     
     return dict(results)
 

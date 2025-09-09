@@ -239,7 +239,7 @@ def train_sae_with_pipeline(model, layer_to_train=1, sae_dim=SAE_DIM, use_wandb=
             print(f"GPU memory before training: {torch.cuda.memory_allocated(device) / 1024**2:.2f} MB")
         
         # Define submodule based on the layer to train
-        submodule = f"blocks.{layer_to_train}.hook_resid_post"
+        submodule = f"blocks.{layer_to_train}.hook_resid_post" # modify head or other layer
         print(f"Using submodule: {submodule}")
         
         # Run pipeline

@@ -19,8 +19,13 @@ from collections import defaultdict
 from sae_features_d4096 import (
     SAE_DIM, LAYER_TO_TRAIN, E, T, Q, PAD, IGNORE_INDEX, SEP,
     build_model, collate_fn, val_dataset, train_dataset,
-    N_LAYERS, HEADS, d_model, D_VOCAB, produce_example_by_index
+    N_LAYERS, HEADS, d_model, D_VOCAB, produce_example_by_index,
+    find_separator_after_correct_entity
 )
+
+# Determine if we're training the last layer (dynamic calculation)
+def get_train_last_layer():
+    return True if LAYER_TO_TRAIN == 1 else False
 from dictionary_learning import AutoEncoder
 from huggingface_hub import hf_hub_download
 from train_linear_simple import LinearClassifier
@@ -190,36 +195,74 @@ def extract_activations_for_features(transformer_model, sae, data_loader, device
             cache = transformer_model.run_with_cache(toks, names_filter=[act_name])[1]
             acts = cache[act_name]  # shape: [batch, seq, d_model]
             
-            # For each sequence, find the Q token position and extract features there
-            for i in range(toks.size(0)):
-                if max_samples and sample_count >= max_samples:
-                    break
+            if get_train_last_layer():
+                # For each sequence, find the Q token position and extract features there
+                for i in range(toks.size(0)):
+                    if max_samples and sample_count >= max_samples:
+                        break
+                        
+                    seq = toks[i]
+                    label_seq = labels[i]
                     
-                seq = toks[i]
-                label_seq = labels[i]
+                    # Find Q token position
+                    q_pos = (seq == Q).nonzero(as_tuple=False).squeeze()
+                    if q_pos.numel() > 0:
+                        q_pos = q_pos.item()
+                        if label_seq[q_pos] != IGNORE_INDEX:
+                            # Extract activation at Q position
+                            act_at_q = acts[i, q_pos, :]  # [d_model]
+                            sae_features = sae.encode(act_at_q.unsqueeze(0)).squeeze(0)  # [sae_dim]
+                            
+                            # Store activations for target features
+                            for feat_idx in target_features:
+                                feature_activations[feat_idx].append(sae_features[feat_idx].item())
+                            
+                            # Store metadata about this sample
+                            sample_metadata.append({
+                                'sample_idx': sample_count,
+                                'tokens': seq.cpu().numpy(),
+                                'label': label_seq[q_pos].item(),
+                                'q_position': q_pos
+                            })
+                            
+                            sample_count += 1
+            else:
+                # Extract features at separator position after correct entity
+                # First encode all activations
+                features = sae.encode(acts)  # shape: [batch, seq, sae_dim]
                 
-                # Find Q token position
-                q_pos = (seq == Q).nonzero(as_tuple=False).squeeze()
-                if q_pos.numel() > 0:
-                    q_pos = q_pos.item()
-                    if label_seq[q_pos] != IGNORE_INDEX:
-                        # Extract activation at Q position
-                        act_at_q = acts[i, q_pos, :]  # [d_model]
-                        sae_features = sae.encode(act_at_q.unsqueeze(0)).squeeze(0)  # [sae_dim]
+                for i in range(toks.size(0)):
+                    if max_samples and sample_count >= max_samples:
+                        break
                         
-                        # Store activations for target features
-                        for feat_idx in target_features:
-                            feature_activations[feat_idx].append(sae_features[feat_idx].item())
-                        
-                        # Store metadata about this sample
-                        sample_metadata.append({
-                            'sample_idx': sample_count,
-                            'tokens': seq.cpu().numpy(),
-                            'label': label_seq[q_pos].item(),
-                            'q_position': q_pos
-                        })
-                        
-                        sample_count += 1
+                    seq = toks[i]
+                    label_seq = labels[i]
+                    
+                    # Find Q token position to get the correct label
+                    q_pos = (seq == Q).nonzero(as_tuple=False).squeeze()
+                    if q_pos.numel() > 0:
+                        q_pos = q_pos.item()
+                        if label_seq[q_pos] != IGNORE_INDEX:
+                            # Find the separator position after the correct entity
+                            sep_pos = find_separator_after_correct_entity(seq, label_seq)
+                            if sep_pos is not None:
+                                # Extract features at separator position
+                                sae_features = features[i, sep_pos, :]  # [sae_dim]
+                                
+                                # Store activations for target features
+                                for feat_idx in target_features:
+                                    feature_activations[feat_idx].append(sae_features[feat_idx].item())
+                                
+                                # Store metadata about this sample
+                                sample_metadata.append({
+                                    'sample_idx': sample_count,
+                                    'tokens': seq.cpu().numpy(),
+                                    'label': label_seq[q_pos].item(),
+                                    'q_position': q_pos,
+                                    'sep_position': sep_pos
+                                })
+                                
+                                sample_count += 1
     
     print(f"Extracted activations for {sample_count} samples")
     return feature_activations, sample_metadata
@@ -286,6 +329,7 @@ def print_top_activating_examples(top_examples, target_features):
             tokens = metadata['tokens']
             label = metadata['label']
             q_pos = metadata['q_position']
+            sep_pos = metadata.get('sep_position', None)
             
             readable_seq = tokens_to_readable_string(tokens)
             
@@ -293,6 +337,8 @@ def print_top_activating_examples(top_examples, target_features):
             print(f"     Label (answer): E{label}")
             print(f"     Sequence: {readable_seq}")
             print(f"     Q position: {q_pos}")
+            if sep_pos is not None:
+                print(f"     Separator position: {sep_pos}")
             print()
 
 
