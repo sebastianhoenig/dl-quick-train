@@ -13,6 +13,7 @@ import seaborn as sns
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import os
+import argparse
 from collections import defaultdict
 
 # Import from the main files
@@ -30,11 +31,12 @@ from dictionary_learning import AutoEncoder
 from huggingface_hub import hf_hub_download
 from train_linear_simple import LinearClassifier
 
-def load_trained_model(device='cpu'):
+def load_trained_model(device='cpu', use_less_sparse=False):
     """Load the trained linear model and associated components"""
     
-    # Load the saved linear model
-    model_path = "linear_model_sae_features_layer1_simple.pt"
+    # Choose model path based on less_sparse option
+    suffix = "_less_sparse" if use_less_sparse else ""
+    model_path = f"linear_model_sae_features_layer1_simple{suffix}.pt"
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Trained model not found at {model_path}")
     
@@ -51,7 +53,7 @@ def load_trained_model(device='cpu'):
     
     return linear_model, saved_data
 
-def load_transformer_and_sae(device='cpu'):
+def load_transformer_and_sae(device='cpu', use_less_sparse=False):
     """Load the transformer model and SAE"""
     
     # Load transformer model
@@ -73,7 +75,13 @@ def load_transformer_and_sae(device='cpu'):
     sae = AutoEncoder(activation_dim=d_model, dict_size=SAE_DIM).to(device)
     import glob
     import re
-    checkpoint_dir = "sae_checkpoints_1_hook_resid_post/trainer_0/checkpoints/"
+    
+    # Choose checkpoint directory based on less_sparse option
+    if use_less_sparse:
+        checkpoint_dir = "sae_checkpoints_1_hook_resid_post_less_sparse/trainer_0/checkpoints/"
+    else:
+        checkpoint_dir = "sae_checkpoints_1_hook_resid_post/trainer_0/checkpoints/"
+    
     checkpoint_files = glob.glob(os.path.join(checkpoint_dir, "ae_*.pt"))
     if not checkpoint_files:
         raise FileNotFoundError(f"No SAE checkpoints found in {checkpoint_dir}")
@@ -345,13 +353,22 @@ def print_top_activating_examples(top_examples, target_features):
 def main():
     """Main analysis pipeline"""
     
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Analyze SAE feature importance')
+    parser.add_argument('--less-sparse', action='store_true', 
+                       help='Use less sparse SAE features instead of regular ones')
+    args = parser.parse_args()
+    
+    use_less_sparse = args.less_sparse
+    
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
+    print(f"Using {'less sparse' if use_less_sparse else 'regular'} SAE features")
     
     # Load trained linear model
     print("\nLoading trained linear model...")
-    linear_model, saved_data = load_trained_model(device)
+    linear_model, saved_data = load_trained_model(device, use_less_sparse)
     
     # Analyze feature importance
     print("\nAnalyzing feature importance...")
@@ -366,7 +383,7 @@ def main():
     
     # Load transformer and SAE for activation extraction
     print("\nLoading transformer model and SAE...")
-    transformer_model, sae = load_transformer_and_sae(device)
+    transformer_model, sae = load_transformer_and_sae(device, use_less_sparse)
     
     # Create data loader for analysis
     val_loader = DataLoader(val_dataset, batch_size=32, collate_fn=collate_fn)

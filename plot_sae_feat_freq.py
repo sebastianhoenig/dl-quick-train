@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import defaultdict, Counter
 import random
+import argparse
 from typing import Dict, List, Tuple
 
 # Constants
@@ -19,26 +20,30 @@ Q = E + T + 1
 PAD = E + T + 2
 IGNORE_INDEX = -100
 
-def load_features():
+def load_features(use_less_sparse=False):
     """Load both layer 0 and layer 1 SAE features"""
     print("Loading features...")
     
+    # Choose file suffix based on option
+    suffix = "_less_sparse" if use_less_sparse else ""
+    print(f"Using {'less sparse' if use_less_sparse else 'regular'} SAE features")
+    
     # Load Layer 0 SAE features
     try:
-        layer_0_data = torch.load("layer_0_sae_features_d4096.pt", map_location='cpu', weights_only=False)
+        layer_0_data = torch.load(f"layer_0_sae_features_d4096{suffix}.pt", map_location='cpu', weights_only=False)
         print(f"✓ Loaded Layer 0 SAE features: {layer_0_data['features'].shape}")
         print(f"  Labels shape: {layer_0_data['labels'].shape}")
     except FileNotFoundError:
-        print("❌ Layer 0 SAE features not found")
+        print(f"❌ Layer 0 SAE features not found: layer_0_sae_features_d4096{suffix}.pt")
         layer_0_data = None
     
     # Load Layer 1 SAE features
     try:
-        layer_1_data = torch.load("layer_1_sae_features_d4096.pt", map_location='cpu', weights_only=False)
+        layer_1_data = torch.load(f"layer_1_sae_features_d4096{suffix}.pt", map_location='cpu', weights_only=False)
         print(f"✓ Loaded Layer 1 SAE features: {layer_1_data['features'].shape}")
         print(f"  Labels shape: {layer_1_data['labels'].shape}")
     except FileNotFoundError:
-        print("❌ Layer 1 SAE features not found")
+        print(f"❌ Layer 1 SAE features not found: layer_1_sae_features_d4096{suffix}.pt")
         layer_1_data = None
     
     return layer_0_data, layer_1_data
@@ -200,7 +205,7 @@ def analyze_entity_token_features(layer_0_data, layer_1_data, target_entities: L
     
     return dict(results)
 
-def plot_entity_token_analysis(entity_results: Dict, save_path: str = "entity_sae_analysis.png"):
+def plot_entity_token_analysis(entity_results: Dict, save_path: str = "entity_sae_analysis.png", use_less_sparse: bool = False):
     """Create visualization for entity SAE analysis"""
     print("\n📊 Creating entity SAE analysis plots...")
     
@@ -369,14 +374,23 @@ def print_detailed_token_analysis(entity_results: Dict):
 
 def main():
     """Main function"""
+    parser = argparse.ArgumentParser(description='Advanced Entity SAE Feature Analysis')
+    parser.add_argument('--less-sparse', action='store_true', 
+                       help='Use less sparse SAE features instead of regular ones')
+    args = parser.parse_args()
+    
     print("🚀 Advanced Entity SAE Feature Analysis")
     print("=" * 70)
     print("This analysis extracts SAE features for both Layer 0 and Layer 1,")
     print("organized by LABEL ENTITY (the target answer)")
+    if args.less_sparse:
+        print("Using LESS SPARSE SAE features")
+    else:
+        print("Using REGULAR SAE features")
     print("=" * 70)
     
     # Load features
-    layer_0_data, layer_1_data = load_features()
+    layer_0_data, layer_1_data = load_features(use_less_sparse=args.less_sparse)
     
     if layer_0_data is None and layer_1_data is None:
         print("❌ No feature data available. Please run the SAE training script first.")
@@ -436,7 +450,8 @@ def main():
     print_detailed_token_analysis(entity_results)
     
     # Create plots
-    plot_entity_token_analysis(entity_results, "entity_sae_analysis.png")
+    suffix = "_less_sparse" if args.less_sparse else ""
+    plot_entity_token_analysis(entity_results, f"entity_sae_analysis{suffix}.png", use_less_sparse=args.less_sparse)
     
     print("\n✅ Advanced entity SAE analysis complete!")
     print("This shows how SAE features relate to specific label entities.")

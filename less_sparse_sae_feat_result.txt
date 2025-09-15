@@ -1,0 +1,510 @@
+Using device: cuda
+Using less sparse SAE features
+
+Loading pretrained transformer model...
+Moving model to device:  cuda
+Model loaded successfully.
+
+Loading SAE...
+SAE loaded successfully.
+
+Extracting training features...
+Extracting features: 100%|████████████████████████████████████████████| 1250/1250 [00:37<00:00, 33.20it/s]
+Extracted 80000 samples
+Feature shape: torch.Size([80000, 4096])
+Label range: 0 to 99
+Unique labels: 100
+
+Extracting validation features...
+Extracting features: 100%|██████████████████████████████████████████████| 313/313 [00:08<00:00, 35.69it/s]
+Extracted 20000 samples
+Feature shape: torch.Size([20000, 4096])
+Label range: 0 to 99
+Unique labels: 100
+
+==================================================
+TRAINING LINEAR CLASSIFIER
+==================================================
+
+Training linear classifier:
+  Input dimension: 4096
+  Number of classes: 100
+  Training samples: 80000
+  Validation samples: 20000
+  Learning rate: 0.001
+  Epochs: 150
+  Batch size: 512
+  L1 regularization: 1e-05
+Epoch  20/150: Loss = 0.4339, Train Acc = 1.0000, Val Acc = 0.9999
+Epoch  40/150: Loss = 0.2630, Train Acc = 1.0000, Val Acc = 1.0000
+Epoch  60/150: Loss = 0.1941, Train Acc = 1.0000, Val Acc = 1.0000
+Epoch  80/150: Loss = 0.1625, Train Acc = 1.0000, Val Acc = 1.0000
+Epoch 100/150: Loss = 0.1448, Train Acc = 1.0000, Val Acc = 1.0000
+Epoch 120/150: Loss = 0.1331, Train Acc = 1.0000, Val Acc = 1.0000
+Epoch 140/150: Loss = 0.1248, Train Acc = 1.0000, Val Acc = 1.0000
+
+Training completed!
+Best validation accuracy: 1.0000
+Final training accuracy: 1.0000
+
+==================================================
+FINAL EVALUATION
+==================================================
+
+Final Results:
+Overall Accuracy: 1.0000
+Macro Average Accuracy: 1.0000
+Best Validation Accuracy: 1.0000
+Final Training Accuracy: 1.0000
+
+Per-class accuracy (first 20 classes):
+  Entity  0: 1.0000 (196 samples)
+  Entity  1: 1.0000 (172 samples)
+  Entity  2: 1.0000 (195 samples)
+  Entity  3: 1.0000 (216 samples)
+  Entity  4: 1.0000 (203 samples)
+  Entity  5: 1.0000 (192 samples)
+  Entity  6: 1.0000 (211 samples)
+  Entity  7: 1.0000 (202 samples)
+  Entity  8: 1.0000 (188 samples)
+  Entity  9: 1.0000 (186 samples)
+  Entity 10: 1.0000 (178 samples)
+  Entity 11: 1.0000 (183 samples)
+  Entity 12: 1.0000 (178 samples)
+  Entity 13: 1.0000 (206 samples)
+  Entity 14: 1.0000 (209 samples)
+  Entity 15: 1.0000 (186 samples)
+  Entity 16: 1.0000 (215 samples)
+  Entity 17: 1.0000 (214 samples)
+  Entity 18: 1.0000 (199 samples)
+  Entity 19: 1.0000 (199 samples)
+
+Training completed!
+Results saved to linear_model_sae_features_layer1_simple_less_sparse.pt
+root@88edf0fa6570:/workspace/dl-quick-train# python analyze_sae_feature_importance.py --less-sparse
+Using device: cuda
+Using less sparse SAE features
+
+Loading trained linear model...
+Linear model loaded successfully
+Model accuracy: 1.0000
+Hyperparameters: {'sae_dim': 4096, 'layer': 1, 'num_classes': 100, 'lr': 0.001, 'epochs': 150, 'l1_lambda': 1e-05, 'train_samples': 80000, 'val_samples': 20000}
+
+Analyzing feature importance...
+Weight matrix shape: (100, 4096)
+Bias shape: (100,)
+
+================================================================================
+FEATURE IMPORTANCE ANALYSIS
+================================================================================
+
+Most discriminative features across all entities:
+  Feature 2301: max_abs_weight = 16.3348
+  Feature 2877: max_abs_weight = 16.0440
+  Feature  867: max_abs_weight = 15.9931
+  Feature 2653: max_abs_weight = 15.9799
+  Feature  785: max_abs_weight = 15.8484
+  Feature 3450: max_abs_weight = 15.8199
+  Feature 1909: max_abs_weight = 15.7769
+  Feature 2503: max_abs_weight = 15.7289
+  Feature 3047: max_abs_weight = 15.4673
+  Feature 2356: max_abs_weight = 15.4524
+
+Features with highest variance across entities:
+  Feature 1157: variance = 7.6841
+  Feature 3759: variance = 6.4042
+  Feature 1032: variance = 6.3785
+  Feature 2141: variance = 5.7832
+  Feature 1318: variance = 5.5452
+  Feature  689: variance = 5.5118
+  Feature 2104: variance = 5.4863
+  Feature 2488: variance = 5.3722
+  Feature  141: variance = 5.3295
+  Feature 2435: variance = 5.1795
+
+Top features for first 10 entities:
+
+Entity 0:
+  Weight statistics: max_pos=15.4673, max_neg=-0.3212, std=0.5041
+  Top positive features:
+    Feature 3047: 15.4673
+    Feature 3916: 12.0953
+    Feature 1352: 10.8460
+    Feature 3532: 10.0891
+    Feature 1876: 8.9886
+  Top negative features:
+    Feature 2888: -0.3212
+    Feature 2797: -0.0008
+    Feature 3044: -0.0006
+    Feature  469: -0.0006
+    Feature 3943: -0.0006
+
+Entity 1:
+  Weight statistics: max_pos=12.5932, max_neg=-0.0007, std=0.5384
+  Top positive features:
+    Feature 3122: 12.5932
+    Feature 1157: 11.6909
+    Feature 1189: 10.9886
+    Feature 1777: 10.8615
+    Feature 2752: 10.7011
+  Top negative features:
+    Feature 2498: -0.0007
+    Feature 1396: -0.0007
+    Feature 2283: -0.0007
+    Feature 3998: -0.0006
+    Feature 1252: -0.0006
+
+Entity 2:
+  Weight statistics: max_pos=13.3824, max_neg=-0.0015, std=0.4825
+  Top positive features:
+    Feature  332: 13.3824
+    Feature 1295: 12.6392
+    Feature 3908: 11.9696
+    Feature 1188: 9.6847
+    Feature 1498: 9.3743
+  Top negative features:
+    Feature 1160: -0.0015
+    Feature 2996: -0.0014
+    Feature 2737: -0.0014
+    Feature  113: -0.0008
+    Feature 3588: -0.0008
+
+Entity 3:
+  Weight statistics: max_pos=12.0725, max_neg=-0.2718, std=0.5037
+  Top positive features:
+    Feature 2674: 12.0725
+    Feature 1564: 10.3601
+    Feature 3434: 9.6342
+    Feature  725: 8.0433
+    Feature  218: 8.0294
+  Top negative features:
+    Feature 2888: -0.2718
+    Feature 2739: -0.0032
+    Feature 2996: -0.0018
+    Feature 2650: -0.0013
+    Feature 1160: -0.0012
+
+Entity 4:
+  Weight statistics: max_pos=12.9440, max_neg=-0.0763, std=0.4917
+  Top positive features:
+    Feature 3451: 12.9440
+    Feature 1906: 12.2739
+    Feature 1754: 11.4799
+    Feature 1136: 8.6938
+    Feature 1309: 8.3641
+  Top negative features:
+    Feature 2888: -0.0763
+    Feature 2996: -0.0656
+    Feature 1555: -0.0348
+    Feature  307: -0.0016
+    Feature 2650: -0.0012
+
+Entity 5:
+  Weight statistics: max_pos=13.0881, max_neg=-3.6108, std=0.5094
+  Top positive features:
+    Feature 3095: 13.0881
+    Feature  591: 12.2990
+    Feature 2260: 11.6220
+    Feature  400: 10.3977
+    Feature 2969: 9.7633
+  Top negative features:
+    Feature 2996: -3.6108
+    Feature 3604: -0.0006
+    Feature 1562: -0.0006
+    Feature 3374: -0.0006
+    Feature 2118: -0.0006
+
+Entity 6:
+  Weight statistics: max_pos=13.6880, max_neg=-0.0007, std=0.5089
+  Top positive features:
+    Feature  729: 13.6880
+    Feature 2709: 11.7586
+    Feature 2878: 11.3034
+    Feature  579: 10.9084
+    Feature 2573: 9.4217
+  Top negative features:
+    Feature 3114: -0.0007
+    Feature 1902: -0.0007
+    Feature  741: -0.0007
+    Feature  433: -0.0007
+    Feature  317: -0.0007
+
+Entity 7:
+  Weight statistics: max_pos=13.5209, max_neg=-0.7744, std=0.4941
+  Top positive features:
+    Feature 2027: 13.5209
+    Feature 4086: 13.2823
+    Feature 1037: 11.5122
+    Feature 1084: 10.7664
+    Feature  218: 10.1487
+  Top negative features:
+    Feature 2739: -0.7744
+    Feature 1555: -0.0014
+    Feature 2131: -0.0006
+    Feature 1809: -0.0006
+    Feature 2055: -0.0006
+
+Entity 8:
+  Weight statistics: max_pos=13.8957, max_neg=-0.0018, std=0.5058
+  Top positive features:
+    Feature 1185: 13.8957
+    Feature  733: 13.6605
+    Feature 1188: 10.5629
+    Feature  958: 10.0158
+    Feature 3237: 9.7669
+  Top negative features:
+    Feature 1160: -0.0018
+    Feature  307: -0.0011
+    Feature 3431: -0.0008
+    Feature 2737: -0.0007
+    Feature 1325: -0.0006
+
+Entity 9:
+  Weight statistics: max_pos=13.7365, max_neg=-0.8595, std=0.4712
+  Top positive features:
+    Feature 1346: 13.7365
+    Feature 1189: 13.0909
+    Feature  900: 9.6376
+    Feature 3403: 9.2831
+    Feature 1930: 9.2784
+  Top negative features:
+    Feature 2996: -0.8595
+    Feature 2739: -0.0036
+    Feature 1160: -0.0009
+    Feature 1927: -0.0007
+    Feature  202: -0.0007
+
+Selected features for detailed analysis: [2301, 2877, 867, 2653, 785]
+
+Loading transformer model and SAE...
+Loading pretrained transformer model...
+Moving model to device:  cuda
+Transformer model loaded successfully.
+Loading SAE...
+Using SAE checkpoint: sae_checkpoints_1_hook_resid_post_less_sparse/trainer_0/checkpoints/ae_19500.pt
+SAE loaded successfully.
+
+Extracting activations for selected features...
+Extracting activations:  15%|██████▌                                     | 94/625 [00:02<00:12, 41.91it/s]
+Extracted activations for 3000 samples
+
+Finding top activating examples...
+
+================================================================================
+TOP ACTIVATING EXAMPLES
+================================================================================
+
+Feature 2301 - Top 5 activating examples:
+------------------------------------------------------------
+  1. Activation: 0.2353
+     Label (answer): E11
+     Sequence: E73 R6 E70  |  E39 R3 E42  |  E63 R0 E49  |  E29 R0 E33  |  E45 R4 E71  |  E26 R7 E11  |  E2 R2 E49  |  E67 R2 E70  |  R7 E26  ? 
+     Q position: 34
+
+  2. Activation: 0.2274
+     Label (answer): E11
+     Sequence: E1 R3 E42  |  E1 R5 E11  |  E10 R6 E48  |  E47 R5 E18  |  E84 R4 E6  |  E94 R8 E34  |  E42 R9 E37  |  E37 R1 E81  |  R5 E1  ? 
+     Q position: 34
+
+  3. Activation: 0.2254
+     Label (answer): E11
+     Sequence: E61 R5 E30  |  E70 R3 E36  |  E35 R2 E0  |  E54 R6 E4  |  E70 R1 E11  |  E50 R3 E55  |  E23 R1 E95  |  E83 R2 E48  |  R1 E70  ? 
+     Q position: 34
+
+  4. Activation: 0.2198
+     Label (answer): E11
+     Sequence: E39 R2 E73  |  E23 R3 E49  |  E96 R1 E19  |  E36 R3 E12  |  E72 R0 E70  |  E27 R2 E63  |  E36 R4 E11  |  R4 E36  ?  [PAD] [PAD] [PAD] [PAD]
+     Q position: 30
+
+  5. Activation: 0.2174
+     Label (answer): E11
+     Sequence: E30 R2 E66  |  E44 R3 E29  |  E9 R2 E49  |  E56 R6 E47  |  E64 R3 E13  |  E31 R1 E11  |  E66 R5 E28  |  E31 R5 E96  |  R1 E31  ? 
+     Q position: 34
+
+
+Feature 2877 - Top 5 activating examples:
+------------------------------------------------------------
+  1. Activation: 0.2710
+     Label (answer): E13
+     Sequence: E2 R3 E43  |  E21 R0 E76  |  E6 R8 E13  |  E15 R3 E2  |  E30 R3 E46  |  R8 E6  ?  [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]
+     Q position: 22
+
+  2. Activation: 0.2640
+     Label (answer): E13
+     Sequence: E83 R9 E85  |  E13 R3 E30  |  E16 R9 E30  |  E3 R4 E82  |  E52 R7 E98  |  E17 R8 E13  |  R8 E17  ?  [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]
+     Q position: 26
+
+  3. Activation: 0.2539
+     Label (answer): E13
+     Sequence: E54 R3 E50  |  E91 R7 E85  |  E68 R8 E85  |  E91 R2 E13  |  E56 R4 E54  |  E23 R5 E40  |  R2 E91  ?  [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]
+     Q position: 26
+
+  4. Activation: 0.2514
+     Label (answer): E13
+     Sequence: E82 R6 E16  |  E71 R6 E40  |  E12 R4 E4  |  E64 R1 E65  |  E82 R2 E13  |  E26 R2 E38  |  R2 E82  ?  [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]
+     Q position: 26
+
+  5. Activation: 0.2493
+     Label (answer): E13
+     Sequence: E94 R0 E75  |  E31 R0 E20  |  E72 R0 E67  |  E69 R3 E13  |  E29 R9 E35  |  E68 R7 E25  |  R3 E69  ?  [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]
+     Q position: 26
+
+
+Feature 867 - Top 5 activating examples:
+------------------------------------------------------------
+  1. Activation: 0.2282
+     Label (answer): E82
+     Sequence: E15 R4 E34  |  E47 R2 E82  |  E76 R5 E42  |  E47 R3 E15  |  E23 R3 E92  |  E31 R0 E69  |  E11 R1 E22  |  R2 E47  ?  [PAD] [PAD] [PAD] [PAD]
+     Q position: 30
+
+  2. Activation: 0.2222
+     Label (answer): E82
+     Sequence: E9 R5 E22  |  E2 R9 E38  |  E35 R0 E12  |  E14 R4 E29  |  E22 R0 E82  |  E16 R3 E80  |  E64 R5 E23  |  R0 E22  ?  [PAD] [PAD] [PAD] [PAD]
+     Q position: 30
+
+  3. Activation: 0.2075
+     Label (answer): E82
+     Sequence: E24 R5 E44  |  E3 R2 E75  |  E95 R8 E90  |  E5 R2 E13  |  E84 R4 E77  |  E83 R7 E15  |  E3 R9 E82  |  E98 R0 E37  |  R9 E3  ? 
+     Q position: 34
+
+  4. Activation: 0.2064
+     Label (answer): E82
+     Sequence: E4 R8 E60  |  E37 R0 E82  |  E90 R7 E47  |  E36 R2 E66  |  E60 R2 E81  |  E16 R4 E21  |  E93 R2 E7  |  E49 R6 E15  |  R0 E37  ? 
+     Q position: 34
+
+  5. Activation: 0.1999
+     Label (answer): E82
+     Sequence: E0 R7 E82  |  E60 R3 E25  |  E0 R2 E80  |  E27 R7 E54  |  E32 R9 E29  |  E58 R0 E79  |  R7 E0  ?  [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]
+     Q position: 26
+
+
+Feature 2653 - Top 5 activating examples:
+------------------------------------------------------------
+  1. Activation: 0.2501
+     Label (answer): E65
+     Sequence: E9 R3 E20  |  E19 R2 E53  |  E96 R3 E65  |  E49 R9 E39  |  R3 E96  ?  [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]
+     Q position: 18
+
+  2. Activation: 0.2339
+     Label (answer): E65
+     Sequence: E34 R2 E58  |  E6 R4 E10  |  E73 R1 E45  |  E0 R7 E71  |  E0 R3 E65  |  E41 R5 E86  |  R3 E0  ?  [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]
+     Q position: 26
+
+  3. Activation: 0.2259
+     Label (answer): E65
+     Sequence: E88 R4 E22  |  E80 R4 E60  |  E44 R0 E77  |  E15 R2 E65  |  E68 R8 E82  |  E57 R7 E99  |  E15 R3 E35  |  R2 E15  ?  [PAD] [PAD] [PAD] [PAD]
+     Q position: 30
+
+  4. Activation: 0.2164
+     Label (answer): E65
+     Sequence: E21 R3 E40  |  E56 R0 E83  |  E74 R6 E10  |  E21 R8 E65  |  E0 R6 E79  |  R8 E21  ?  [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]
+     Q position: 22
+
+  5. Activation: 0.2160
+     Label (answer): E65
+     Sequence: E44 R7 E66  |  E13 R5 E97  |  E10 R6 E2  |  E89 R5 E11  |  E38 R1 E96  |  E75 R2 E53  |  E39 R4 E36  |  E75 R6 E65  |  R6 E75  ? 
+     Q position: 34
+
+
+Feature 785 - Top 5 activating examples:
+------------------------------------------------------------
+  1. Activation: 0.2478
+     Label (answer): E10
+     Sequence: E57 R5 E41  |  E99 R1 E59  |  E3 R9 E54  |  E74 R3 E52  |  E39 R0 E10  |  E39 R8 E75  |  E32 R7 E72  |  E65 R7 E64  |  R0 E39  ? 
+     Q position: 34
+
+  2. Activation: 0.2311
+     Label (answer): E10
+     Sequence: E52 R5 E43  |  E35 R2 E10  |  E35 R3 E76  |  E48 R2 E37  |  R2 E35  ?  [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]
+     Q position: 18
+
+  3. Activation: 0.2277
+     Label (answer): E10
+     Sequence: E42 R5 E98  |  E99 R3 E8  |  E94 R9 E9  |  E68 R9 E10  |  E68 R7 E18  |  E7 R2 E21  |  R9 E68  ?  [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]
+     Q position: 26
+
+  4. Activation: 0.2259
+     Label (answer): E10
+     Sequence: E27 R7 E52  |  E64 R0 E10  |  E64 R3 E48  |  E65 R7 E18  |  E2 R3 E14  |  R0 E64  ?  [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]
+     Q position: 22
+
+  5. Activation: 0.2209
+     Label (answer): E10
+     Sequence: E8 R3 E54  |  E4 R2 E77  |  E31 R8 E10  |  E74 R3 E33  |  E0 R3 E36  |  E57 R9 E36  |  E50 R0 E85  |  E2 R1 E25  |  R8 E31  ? 
+     Q position: 34
+
+
+================================================================================
+FEATURE-TO-ENTITY PREDICTION ANALYSIS
+================================================================================
+
+Feature 2301:
+  Most positively predicted entities:
+    Entity 11: weight = 16.3348
+    Entity 65: weight = 0.0004
+    Entity 27: weight = 0.0004
+    Entity 3: weight = 0.0003
+    Entity 70: weight = 0.0003
+  Most negatively predicted entities:
+    Entity 23: weight = -0.0003
+    Entity 88: weight = -0.0003
+    Entity 46: weight = -0.0003
+    Entity 72: weight = -0.0002
+    Entity 54: weight = -0.0002
+
+Feature 2877:
+  Most positively predicted entities:
+    Entity 13: weight = 16.0440
+    Entity 16: weight = 11.0541
+    Entity 93: weight = 0.0005
+    Entity 6: weight = 0.0005
+    Entity 34: weight = 0.0004
+  Most negatively predicted entities:
+    Entity 31: weight = -0.0004
+    Entity 35: weight = -0.0004
+    Entity 32: weight = -0.0003
+    Entity 58: weight = -0.0003
+    Entity 79: weight = -0.0003
+
+Feature 867:
+  Most positively predicted entities:
+    Entity 82: weight = 15.9931
+    Entity 46: weight = 0.0005
+    Entity 32: weight = 0.0003
+    Entity 41: weight = 0.0002
+    Entity 30: weight = 0.0002
+  Most negatively predicted entities:
+    Entity 17: weight = -0.0005
+    Entity 53: weight = -0.0004
+    Entity 19: weight = -0.0003
+    Entity 33: weight = -0.0003
+    Entity 97: weight = -0.0003
+
+Feature 2653:
+  Most positively predicted entities:
+    Entity 65: weight = 15.9799
+    Entity 55: weight = 1.2990
+    Entity 88: weight = 0.0004
+    Entity 83: weight = 0.0004
+    Entity 1: weight = 0.0003
+  Most negatively predicted entities:
+    Entity 37: weight = -0.0003
+    Entity 4: weight = -0.0003
+    Entity 39: weight = -0.0003
+    Entity 64: weight = -0.0003
+    Entity 75: weight = -0.0002
+
+Feature 785:
+  Most positively predicted entities:
+    Entity 10: weight = 15.8484
+    Entity 28: weight = 0.0004
+    Entity 74: weight = 0.0004
+    Entity 37: weight = 0.0003
+    Entity 99: weight = 0.0003
+  Most negatively predicted entities:
+    Entity 54: weight = -0.0003
+    Entity 14: weight = -0.0003
+    Entity 50: weight = -0.0003
+    Entity 93: weight = -0.0003
+    Entity 17: weight = -0.0003
+root@88edf0fa6570:/workspace/dl-quick-train# 

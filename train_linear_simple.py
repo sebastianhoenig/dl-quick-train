@@ -10,6 +10,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 import numpy as np
 import os
+import argparse
 from tqdm import tqdm
 
 # Import from the main file
@@ -260,9 +261,20 @@ def evaluate_model(model, val_features, val_labels, device='cpu'):
 def main():
     """Main training and evaluation pipeline"""
     
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Train linear classifier on SAE features')
+    parser.add_argument('--less-sparse', action='store_true', 
+                       help='Use less sparse SAE features instead of regular ones')
+    parser.add_argument('--l1-lambda', type=float, default=0.001,
+                       help='L1 regularization strength (default: 0.001)')
+    args = parser.parse_args()
+    
+    use_less_sparse = args.less_sparse
+    
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
+    print(f"Using {'less sparse' if use_less_sparse else 'regular'} SAE features")
     
     # Load model
     print("\nLoading pretrained transformer model...")
@@ -282,7 +294,12 @@ def main():
     sae = AutoEncoder(activation_dim=d_model, dict_size=SAE_DIM).to(device)
     import glob
 
-    checkpoint_dir = "sae_checkpoints_1_hook_resid_post/trainer_0/checkpoints/"
+    # Choose checkpoint directory based on less_sparse option
+    if use_less_sparse:
+        checkpoint_dir = "sae_checkpoints_1_hook_resid_post_less_sparse/trainer_0/checkpoints/"
+    else:
+        checkpoint_dir = "sae_checkpoints_1_hook_resid_post/trainer_0/checkpoints/"
+    
     checkpoint_files = glob.glob(os.path.join(checkpoint_dir, "ae_*.pt"))
     if not checkpoint_files:
         raise FileNotFoundError(f"No SAE checkpoints found in {checkpoint_dir}")
@@ -331,7 +348,7 @@ def main():
     
     linear_model, best_val_acc, final_train_acc = train_linear_model(
         train_features, train_labels, val_features, val_labels,
-        num_epochs=150, lr=0.001, device=device, batch_size=512, l1_lambda=0.001
+        num_epochs=150, lr=0.001, device=device, batch_size=512, l1_lambda=args.l1_lambda
     )
     
     # Evaluate model
@@ -373,13 +390,15 @@ def main():
             'num_classes': E,
             'lr': 0.001,
             'epochs': 150,
-            'l1_lambda': 0.001,
+            'l1_lambda': args.l1_lambda,
             'train_samples': len(train_features),
             'val_samples': len(val_features)
         }
     }
     
-    save_path = f"linear_model_sae_features_layer{LAYER_TO_TRAIN}_simple.pt"
+    # Choose save path based on less_sparse option
+    suffix = "_less_sparse" if use_less_sparse else ""
+    save_path = f"linear_model_sae_features_layer{LAYER_TO_TRAIN}_simple{suffix}.pt"
     torch.save(save_dict, save_path)
     
     print(f"\nTraining completed!")

@@ -2,7 +2,13 @@
 
 SAE_DIM = 4096 #16384 #1024 # 4096
 LAYER_TO_TRAIN = 1  # also edit pipeline.py if changing this
-TRAIN_LAST_LAYER = True if LAYER_TO_TRAIN == 1 else False 
+TRAIN_LAST_LAYER = True if LAYER_TO_TRAIN == 1 else False
+
+# SAE Configuration Types:
+# - "original": Very sparse (99%+ sparsity) - original parameters
+# - "less_sparse": Balanced sparsity (~95-98% sparsity) - recommended
+# - "very_less_sparse": Low sparsity (~90-95% sparsity) - for maximum feature activation
+SAE_CONFIG_TYPE = "less_sparse"  # Change this to switch between configurations 
 
 """### Train SAE on Toy Transformer using run_pipeline for w&b logging and parallel training"""
 
@@ -207,12 +213,29 @@ class CustomDatasetWrapper:
             self.iterator = iter(DataLoader(self.dataset, batch_size=self.batch_size, collate_fn=self.collate_fn))
             return next(self.iterator)
 
-def train_sae_with_pipeline(model, layer_to_train=1, sae_dim=SAE_DIM, use_wandb=True, checkpoint_dir=None):
-    """Train a single SAE using run_pipeline"""
+def get_sae_config(layer_to_train=1, sae_dim=SAE_DIM, config_type="less_sparse"):
+    """Get SAE training configuration with different parameter sets"""
     
-    try:
-        # Create simple trainer configuration for single SAE
-        trainer_config = {
+    if config_type == "less_sparse":
+        # Configuration for less sparse, more discriminative features
+        # Key changes: lower L1 penalty, longer sparsity warmup, higher LR, resampling
+        return {
+            "trainer": StandardTrainer,
+            "steps": 100_000,
+            "activation_dim": 256,  # d_model
+            "dict_size": sae_dim,
+            "layer": layer_to_train,
+            "lm_name": f"entity_binding_model_layer_{layer_to_train}",
+            "wandb_name": f"StandardTrainer_L{layer_to_train}_D{sae_dim}_less_sparse",
+            "lr": 2e-4,  # Increased learning rate for better feature learning
+            "l1_penalty": 1e-3,  # Significantly reduced L1 penalty (was 1e-1)
+            "warmup_steps": 2000,  # Increased warmup steps
+            "sparsity_warmup_steps": 10000,  # Much longer sparsity warmup for gradual introduction
+            # Note: decay_start removed because it's mutually exclusive with resample_steps
+        }
+    elif config_type == "original":
+        # Original configuration (very sparse)
+        return {
             "trainer": StandardTrainer,
             "steps": 100_000,
             "activation_dim": 256,  # d_model
@@ -225,6 +248,33 @@ def train_sae_with_pipeline(model, layer_to_train=1, sae_dim=SAE_DIM, use_wandb=
             "warmup_steps": 1000,
             "sparsity_warmup_steps": 2000,
         }
+    elif config_type == "very_less_sparse":
+        # Even less sparse configuration for maximum feature activation
+        return {
+            "trainer": StandardTrainer,
+            "steps": 100_000,
+            "activation_dim": 256,  # d_model
+            "dict_size": sae_dim,
+            "layer": layer_to_train,
+            "lm_name": f"entity_binding_model_layer_{layer_to_train}",
+            "wandb_name": f"StandardTrainer_L{layer_to_train}_D{sae_dim}_very_less_sparse",
+            "lr": 3e-4,  # Even higher learning rate
+            "l1_penalty": 1e-4,  # Very low L1 penalty
+            "warmup_steps": 3000,  # Longer warmup
+            "sparsity_warmup_steps": 15000,  # Very long sparsity warmup
+            "resample_steps": 3000,  # More frequent resampling
+            # Note: decay_start removed because it's mutually exclusive with resample_steps
+        }
+    else:
+        raise ValueError(f"Unknown config_type: {config_type}")
+
+def train_sae_with_pipeline(model, layer_to_train=1, sae_dim=SAE_DIM, use_wandb=True, checkpoint_dir=None, config_type="less_sparse"):
+    """Train a single SAE using run_pipeline with configurable parameters"""
+    
+    try:
+        # Get trainer configuration based on config_type
+        trainer_config = get_sae_config(layer_to_train, sae_dim, config_type)
+        print(f"Using {config_type} configuration for SAE training")
         
         print(f"Created trainer configuration for layer {layer_to_train}")
         
@@ -696,7 +746,7 @@ def main():
         print(f"Model device: {next(model.parameters()).device}")
         # Verify that checkpoints were created or find existing ones
         print("\nVerifying checkpoint availability...")
-        checkpoint_dir = f"./sae_checkpoints_{LAYER_TO_TRAIN}_hook_resid_post"
+        checkpoint_dir = f"./sae_checkpoints_{LAYER_TO_TRAIN}_hook_resid_post_{SAE_CONFIG_TYPE}"
         if os.path.exists(f"{checkpoint_dir}/trainer_0/checkpoints/"):
             checkpoints = [f for f in os.listdir(f"{checkpoint_dir}/trainer_0/checkpoints/") if f.endswith('.pt')]
             print(f"Layer {LAYER_TO_TRAIN}: Found {len(checkpoints)} checkpoints: {checkpoints}")
@@ -706,13 +756,14 @@ def main():
             print("Starting SAE training with pipeline...")
             print(f"Training SAE on layer {LAYER_TO_TRAIN}")
             
-            # Train SAE
+            # Train SAE with configurable sparsity settings
             run_ids, trainer_config = train_sae_with_pipeline(
                 model=model,
                 layer_to_train=LAYER_TO_TRAIN,
                 sae_dim=SAE_DIM,
                 use_wandb=use_wandb,
-                checkpoint_dir=checkpoint_dir
+                checkpoint_dir=checkpoint_dir,
+                config_type=SAE_CONFIG_TYPE  # Use global configuration setting
             )
             
             if run_ids:
@@ -749,7 +800,7 @@ def main():
                 analysis = analyze_features(features_dict, val_loader)
                 
                 # Save features and analysis
-                save_path = f"layer_{LAYER_TO_TRAIN}_sae_features_d{SAE_DIM}.pt"
+                save_path = f"layer_{LAYER_TO_TRAIN}_sae_features_d{SAE_DIM}_{SAE_CONFIG_TYPE}.pt"
                 torch.save({
                     'features': features_dict['features'],
                     'reconstructions': features_dict['reconstructions'],
