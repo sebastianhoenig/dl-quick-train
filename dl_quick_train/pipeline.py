@@ -19,6 +19,12 @@ import wandb
 LAYER_TO_TRAIN = 1
 TRAIN_LAST_LAYER = True if LAYER_TO_TRAIN == 1 else False 
 
+# Toy dataset token constants (used when extracting activations at the question token)
+# E: number of entities, T: number of relation types, Q: question mark token id
+E = 100
+T = 10
+Q = E + T + 1  # 111
+
 def new_wandb_process(
     config,
     log_queue,
@@ -296,12 +302,11 @@ def run_pipeline(
                 q_positions = []
                 for i in range(batch_size):
                     # Find Q token position in this sequence
-                    q_pos = (batch[i] == 113).nonzero(as_tuple=False)  # Q = 113 (E + T + 1)
+                    q_pos = (batch[i] == Q).nonzero(as_tuple=False)  # Q = E + T + 1
                     if q_pos.numel() > 0:
                         q_positions.append(q_pos[0].item())
                     else:
-                        # Fallback to last token if Q not found
-                        q_positions.append(act.shape[1] - 1)
+                        raise ValueError(f"No Q token found in sequence {i}")
                 
                 # Extract activations at Q positions
                 act_at_q = torch.zeros(batch_size, act.shape[2], device=act.device)

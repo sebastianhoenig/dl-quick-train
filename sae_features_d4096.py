@@ -8,7 +8,7 @@ TRAIN_LAST_LAYER = True if LAYER_TO_TRAIN == 1 else False
 # - "original": Very sparse (99%+ sparsity) - original parameters
 # - "less_sparse": Balanced sparsity (~95-98% sparsity) - recommended
 # - "very_less_sparse": Low sparsity (~90-95% sparsity) - for maximum feature activation
-SAE_CONFIG_TYPE = "less_sparse"  # Change this to switch between configurations 
+SAE_CONFIG_TYPE = "original"  # Change this to switch between configurations 
 
 """### Train SAE on Toy Transformer using run_pipeline for w&b logging and parallel training"""
 
