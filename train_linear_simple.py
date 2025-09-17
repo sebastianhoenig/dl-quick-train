@@ -98,7 +98,6 @@ def extract_sae_features_for_training(model, sae, data_loader, device, max_sampl
                             if sep_pos is not None:
                                 # Extract feature at separator position
                                 feature = features[i, sep_pos, :]  # [sae_dim]
-                                
                                 all_features.append(feature.cpu())
                                 all_labels.append(label_seq[q_pos].item())
                                 sample_count += 1
@@ -294,12 +293,13 @@ def main():
     sae = AutoEncoder(activation_dim=d_model, dict_size=SAE_DIM).to(device)
     import glob
 
-    # Choose checkpoint directory based on less_sparse option
+    # Choose checkpoint directory based on less_sparse option and layer
+    layer_str = str(LAYER_TO_TRAIN)
+    print(layer_str)
     if use_less_sparse:
-        checkpoint_dir = "sae_checkpoints_1_hook_resid_post_less_sparse/trainer_0/checkpoints/"
+        checkpoint_dir = f"sae_checkpoints_{layer_str}_hook_resid_post_less_sparse/trainer_0/checkpoints/"
     else:
-        checkpoint_dir = "sae_checkpoints_1_hook_resid_post/trainer_0/checkpoints/"
-    
+        checkpoint_dir = f"sae_checkpoints_{layer_str}_hook_resid_post_original/trainer_0/checkpoints/"
     checkpoint_files = glob.glob(os.path.join(checkpoint_dir, "ae_*.pt"))
     if not checkpoint_files:
         raise FileNotFoundError(f"No SAE checkpoints found in {checkpoint_dir}")
@@ -315,7 +315,7 @@ def main():
         raise FileNotFoundError(f"SAE checkpoint not found at {sae_path}")
     
     sae.load_state_dict(torch.load(sae_path, map_location=device))
-    print("SAE loaded successfully.")
+    print(f"SAE loaded from {sae_path} successfully.")
     
     # Create data loaders
     train_loader = DataLoader(train_dataset, batch_size=64, collate_fn=collate_fn)
@@ -324,14 +324,7 @@ def main():
     # Extract training features (limit to reasonable size for training)
     print("\nExtracting training features...")
     
-    # Get first item from the iterable dataset
-    # first_item = next(iter(train_dataset))
-    # print("train_dataset first item:", first_item)
-    # print("  - tokens shape:", first_item[0].shape)
-    # print("  - tokens:", first_item[0])
-    # print("  - labels shape:", first_item[1].shape) 
-    # print("  - labels:", first_item[1]) # 53
-    # return
+
     train_features, train_labels = extract_sae_features_for_training(
         model, sae, train_loader, device, max_samples=None#50000  # Limit for memory
     )
@@ -348,7 +341,7 @@ def main():
     
     linear_model, best_val_acc, final_train_acc = train_linear_model(
         train_features, train_labels, val_features, val_labels,
-        num_epochs=150, lr=0.001, device=device, batch_size=512, l1_lambda=args.l1_lambda
+        num_epochs=350, lr=0.01, device=device, batch_size=512, l1_lambda=args.l1_lambda
     )
     
     # Evaluate model

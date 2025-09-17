@@ -1,7 +1,7 @@
 # !pip install transformer-lens dictionary-learning
 
 SAE_DIM = 4096 #16384 #1024 # 4096
-LAYER_TO_TRAIN = 1  # also edit pipeline.py if changing this
+LAYER_TO_TRAIN = 0  # also edit pipeline.py if changing this
 TRAIN_LAST_LAYER = True if LAYER_TO_TRAIN == 1 else False
 
 # SAE Configuration Types:
@@ -300,7 +300,7 @@ def train_sae_with_pipeline(model, layer_to_train=1, sae_dim=SAE_DIM, use_wandb=
                 model_name="custom",
                 dataset_name="custom",
                 submodule=submodule,
-                steps= 20_000,  # Reduced for testing
+                steps= 16_000,  # Reduced for testing
                 batch_size=64,
                 seq_len=64,
                 use_wandb=use_wandb,
@@ -310,7 +310,7 @@ def train_sae_with_pipeline(model, layer_to_train=1, sae_dim=SAE_DIM, use_wandb=
                 save_dir=checkpoint_dir,
                 log_steps=500,
                 verbose=True,
-                save_steps=[19_500],
+                save_steps=[15_500],
                 custom_model=model,
                 custom_dataset=wrapped_dataset
             )

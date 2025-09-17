@@ -36,7 +36,7 @@ def load_trained_model(device='cpu', use_less_sparse=False):
     
     # Choose model path based on less_sparse option
     suffix = "_less_sparse" if use_less_sparse else ""
-    model_path = f"linear_model_sae_features_layer1_simple{suffix}.pt"
+    model_path = f"linear_model_sae_features_layer{LAYER_TO_TRAIN}_simple{suffix}.pt"
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Trained model not found at {model_path}")
     
@@ -76,12 +76,11 @@ def load_transformer_and_sae(device='cpu', use_less_sparse=False):
     import glob
     import re
     
-    # Choose checkpoint directory based on less_sparse option
+  
     if use_less_sparse:
-        checkpoint_dir = "sae_checkpoints_1_hook_resid_post_less_sparse/trainer_0/checkpoints/"
+        checkpoint_dir = f"sae_checkpoints_{LAYER_TO_TRAIN}_hook_resid_post_less_sparse/trainer_0/checkpoints/"
     else:
-        checkpoint_dir = "sae_checkpoints_1_hook_resid_post/trainer_0/checkpoints/"
-    
+        checkpoint_dir = f"sae_checkpoints_{LAYER_TO_TRAIN}_hook_resid_post_original/trainer_0/checkpoints/"
     checkpoint_files = glob.glob(os.path.join(checkpoint_dir, "ae_*.pt"))
     if not checkpoint_files:
         raise FileNotFoundError(f"No SAE checkpoints found in {checkpoint_dir}")

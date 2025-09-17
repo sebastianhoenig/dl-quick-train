@@ -25,7 +25,7 @@ def load_features(use_less_sparse=False):
     print("Loading features...")
     
     # Choose file suffix based on option
-    suffix = "_less_sparse" if use_less_sparse else ""
+    suffix = "_less_sparse" if use_less_sparse else "_original"
     print(f"Using {'less sparse' if use_less_sparse else 'regular'} SAE features")
     
     # Load Layer 0 SAE features

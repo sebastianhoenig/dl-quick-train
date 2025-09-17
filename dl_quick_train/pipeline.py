@@ -16,7 +16,7 @@ from transformers import AutoTokenizer
 
 import wandb
 
-LAYER_TO_TRAIN = 1
+LAYER_TO_TRAIN = 0
 TRAIN_LAST_LAYER = True if LAYER_TO_TRAIN == 1 else False 
 
 # Toy dataset token constants (used when extracting activations at the question token)
