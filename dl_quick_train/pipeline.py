@@ -23,7 +23,63 @@ TRAIN_LAST_LAYER = True if LAYER_TO_TRAIN == 1 else False
 # E: number of entities, T: number of relation types, Q: question mark token id
 E = 100
 T = 10
-Q = E + T + 1  # 111
+# Ground-truth token ids used for optional position selection
+# SEP (comma) = 110, Q (question) = 111
+_SEP_ID = 110
+_Q_ID = 111
+
+def _build_position_mask(tokens: torch.Tensor, selector: str) -> torch.Tensor:
+    """
+    Build a boolean mask of shape [B, S] selecting either all SEP (comma) positions,
+    or the single Q (question) position per sequence.
+    """
+    assert tokens.ndim == 2, f"Expected tokens [B,S], got {tuple(tokens.shape)}"
+    if selector == "sep":
+        return tokens == _SEP_ID
+    elif selector == "q":
+        B, S = tokens.shape
+        mask = torch.zeros_like(tokens, dtype=torch.bool)
+        # each sequence is guaranteed to have exactly one Q by dataset construction
+        q_locs = (tokens == _Q_ID).nonzero(as_tuple=False)
+        # q_locs is [N, 2] with N == B
+        # defensive: iterate per batch row to mark exactly one position
+        for b in range(B):
+            row = (q_locs[:, 0] == b).nonzero(as_tuple=False).squeeze(-1)
+            assert row.numel() >= 1, "No Q found in sequence"
+            q_pos = q_locs[row[0], 1].item()
+            mask[b, q_pos] = True
+        return mask
+    else:
+        raise ValueError(f"Unknown position selector: {selector}")
+    
+def _select_positions_and_flatten(act: torch.Tensor, tokens: torch.Tensor, submodule: str, position_selector: str, head_index: int | None) -> torch.Tensor: 
+    """
+    Given activations and tokens, produce a 2D tensor [N_positions, d_feature] by:
+      - (optionally) slicing a specific head for hook_z
+      - masking either SEP or Q positions
+      - flattening batch/seq to a single sample dimension
+    """
+    tokens = tokens.to(act.device)
+    mask = _build_position_mask(tokens, position_selector)  # [B,S] bool
+
+    if submodule.endswith(".attn.hook_z"):
+        # act: [B, S, H, d_head]
+        assert act.ndim == 4, f"Expected [B,S,H,d_head] for hook_z, got {tuple(act.shape)}"
+        if head_index is not None:
+            # take specific head → [B,S,d_head]
+            act = act[:, :, head_index, :]
+        else:
+            print("Unexpected, asked for head but no head_index provided.")
+    else:
+        # resid_post: [B, S, d_model]
+        assert act.ndim == 3, f"Expected [B,S,d_model] for resid_post, got {tuple(act.shape)}"
+
+    B, S = mask.shape
+    d = act.shape[-1]
+    act2d = act.reshape(B * S, d)[mask.reshape(B * S)]
+    # act2d: [N_positions_in_batch, d_feature]
+    return act2d
+
 
 def new_wandb_process(
     config,
@@ -159,6 +215,8 @@ def run_pipeline(
     save_steps=None,
     custom_model=None,
     custom_dataset=None,
+    position_selector=None,
+    head_index=None,
     **kwargs,
 ):
     mp.set_start_method("spawn", force=True)
@@ -168,7 +226,7 @@ def run_pipeline(
         model = custom_model
         print(f"Using custom model on device: {next(model.parameters()).device}")
         if use_transformer_lens:
-            tok = model.tokenizer
+            tok = None
         else:
             tok = None
     else:
@@ -179,6 +237,8 @@ def run_pipeline(
             model = LanguageModel(model_name, device_map=device)
             tok = AutoTokenizer.from_pretrained(model_name, use_fast=True)
     
+    print(f"Tokenizer: {tok}")
+
     # Handle custom dataset
     if custom_dataset is not None:
         dataset = custom_dataset
@@ -283,7 +343,7 @@ def run_pipeline(
             with torch.no_grad():
                 if use_transformer_lens:
                     _, cache = model.run_with_cache(
-                        batch.to(device) ,
+                        batch.to(device),
                         names_filter=[submodule],
                         stop_at_layer=stop_at_layer,
                     )
@@ -295,35 +355,24 @@ def run_pipeline(
                         h = submodule_ref.output.save()
                         submodule_ref.output.stop()
                     act = h.value[0]
-            if TRAIN_LAST_LAYER:
-                # Extract activations at question mark token position instead of last token
-                # Find Q token position in each sequence
-                batch_size = act.shape[0]
-                q_positions = []
-                for i in range(batch_size):
-                    # Find Q token position in this sequence
-                    q_pos = (batch[i] == Q).nonzero(as_tuple=False)  # Q = E + T + 1
-                    if q_pos.numel() > 0:
-                        q_positions.append(q_pos[0].item())
-                    else:
-                        raise ValueError(f"No Q token found in sequence {i}")
-                
-                # Extract activations at Q positions
-                act_at_q = torch.zeros(batch_size, act.shape[2], device=act.device)
-                for i, q_pos in enumerate(q_positions):
-                    act_at_q[i] = act[i, q_pos, :]
-                act = act_at_q
+            
+            if use_transformer_lens and position_selector in {"sep", "q"}:
+                # Create 2D activations at selected positions
+                act_for_trainer = _select_positions_and_flatten(
+                    act, batch, submodule=submodule,
+                    position_selector=position_selector, head_index=head_index
+            )
             if (use_wandb or verbose) and step % log_steps == 0:
                 log_stats(
                     trainers,
                     step,
-                    act,
+                    act_for_trainer,
                     False,
                     False,
                     log_queues=log_queues,
                     verbose=verbose,
                 )
-
+                
             if save_steps is not None and step in save_steps:
                 for idx, (trainer_dir, trainer) in enumerate(zip(save_dirs, trainers)):
                     if trainer_dir is None:
@@ -342,7 +391,7 @@ def run_pipeline(
                         log_queues[idx].put(("artifact", path))
 
             for tnr in trainers:
-                tnr.update(step, act)
+                tnr.update(step, act_for_trainer)
 
     if use_wandb:
         for q in log_queues:
