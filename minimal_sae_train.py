@@ -9,7 +9,7 @@ from transformer_lens import HookedTransformer, HookedTransformerConfig
 from huggingface_hub import hf_hub_download
 from dictionary_learning.trainers.standard import StandardTrainer
 from dl_quick_train.pipeline import run_pipeline
-
+from dictionary_learning.trainers.batch_top_k import BatchTopKTrainer
 
 E = 100
 T = 10
@@ -123,7 +123,7 @@ def load_weights(model, device):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--steps", type=int, default=5000)
+    parser.add_argument("--steps", type=int, default=30000)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--seq-len", type=int, default=64)
     parser.add_argument("--save-dir", type=str, default="./sae_ckpts")
@@ -142,26 +142,45 @@ def main():
     model = build_model().to(device)
     load_weights(model, device)
 
-    # prepare tokenized stream (no tokenizer needed)
     train_stream = TrainStream()
     wrapped = CustomDatasetWrapper(train_stream, batch_size=args.batch_size)
 
-    # single SAE config (edit as needed)
-    trainer_cfg = dict(
+    """trainer_cfg = dict(
         trainer=StandardTrainer,
         steps=args.steps,
-        activation_dim=256,  # for resid_post; for hook_z head selection we pass d_head via the trainer config usually
-        dict_size=4096,
+        activation_dim=256,  # for resid_post
+        dict_size=1024,
+        layer=0,
         lr=1e-4,
-        l1_penalty=1e-1,
+        l1_penalty=1e-2,
         warmup_steps=1000,
         sparsity_warmup_steps=2000,
         lm_name="toy_binding",
         wandb_name="toy_binding_sae",
-    )
+    )"""
+    sweep_ks = [4, 8, 12]
+    dict_sizes = [1024, 2048, 4096]
+
+    trainer_cfgs = []
+    for k in sweep_ks:
+        for d_s in dict_sizes:
+            trainer_cfgs.append(dict(
+                trainer=BatchTopKTrainer,
+                steps=20000,
+                activation_dim=256,
+                dict_size=d_s,
+                layer=0,
+                lr=1e-4,
+                warmup_steps=1000,
+                lm_name="toy_binding",
+                # Make each run name unique & informative:
+                wandb_name=f"BTK_k{k}_dS{d_s}",
+                k=k,
+                device=device,
+            ))
 
     run_pipeline(
-        [trainer_cfg],
+        trainer_cfgs,
         device=device,
         model_name="custom",
         submodule=args.submodule,
@@ -173,6 +192,7 @@ def main():
         wandb_entity=args.wandb_entity,
         wandb_project=args.wandb_project,
         save_dir=args.save_dir,
+        save_steps=[],
         log_steps=100,
         verbose=True,
         custom_model=model,
