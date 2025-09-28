@@ -9,7 +9,8 @@ from transformer_lens import HookedTransformer, HookedTransformerConfig
 from huggingface_hub import hf_hub_download
 from dictionary_learning.trainers.standard import StandardTrainer
 from dl_quick_train.pipeline import run_pipeline
-
+from dictionary_learning.trainers.batch_top_k import BatchTopKTrainer
+from dictionary_learning.trainers.jumprelu import JumpReluTrainer
 
 E = 100
 T = 10
@@ -123,13 +124,13 @@ def load_weights(model, device):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--steps", type=int, default=5000)
+    parser.add_argument("--steps", type=int, default=30000)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--seq-len", type=int, default=64)
-    parser.add_argument("--save-dir", type=str, default="./sae_ckpts")
+    parser.add_argument("--save-dir", type=str, default="./sae_ckpts_susie_batchtopk_overnight2")
     parser.add_argument("--use-wandb", action="store_true")
-    parser.add_argument("--wandb-entity", type=str, default="hoenigsebastian-eth-z-rich")
-    parser.add_argument("--wandb-project", type=str, default="SAE")
+    parser.add_argument("--wandb-entity", type=str, default="iamsusie-columbia-university")#hoenigsebastian-eth-z-rich")
+    parser.add_argument("--wandb-project", type=str, default="SAE_overnight2")
     parser.add_argument("--submodule", type=str, required=True,
                         help='e.g. "blocks.0.hook_resid_post" or "blocks.0.attn.hook_z"')
     parser.add_argument("--position-selector", type=str, default="sep", choices=["sep", "q"],
@@ -142,26 +143,155 @@ def main():
     model = build_model().to(device)
     load_weights(model, device)
 
-    # prepare tokenized stream (no tokenizer needed)
     train_stream = TrainStream()
     wrapped = CustomDatasetWrapper(train_stream, batch_size=args.batch_size)
 
-    # single SAE config (edit as needed)
-    trainer_cfg = dict(
-        trainer=StandardTrainer,
-        steps=args.steps,
-        activation_dim=256,  # for resid_post; for hook_z head selection we pass d_head via the trainer config usually
+    # Configuration for your specific requirements: dict_size=4096, k=12, 50k steps
+    trainer_cfgs = []
+    
+    # BatchTopK trainer configuration
+    # trainer_cfgs.append(dict(
+    #     trainer=BatchTopKTrainer,
+    #     steps=100_000,
+    #     activation_dim=256,
+    #     dict_size=4096,
+    #     layer=0,
+    #     lr=1e-4,
+    #     warmup_steps=1000,
+    #     lm_name="toy_binding",
+    #     wandb_name="BTK_k6_dS4096",
+    #     k=6,
+    #     device=device,
+    #     submodule_name=args.submodule,
+    # ))
+    trainer_cfgs.append(dict(
+        trainer=BatchTopKTrainer,
+        steps=100_000_000,
+        activation_dim=256,
         dict_size=4096,
+        layer=0,
         lr=1e-4,
-        l1_penalty=1e-1,
         warmup_steps=1000,
-        sparsity_warmup_steps=2000,
         lm_name="toy_binding",
-        wandb_name="toy_binding_sae",
-    )
+        wandb_name="BTK_k7_dS4096",
+        k=7,
+        device=device,
+        submodule_name=args.submodule,
+    ))
+    # trainer_cfgs.append(dict(
+    #     trainer=BatchTopKTrainer,
+    #     steps=100_000,
+    #     activation_dim=256,
+    #     dict_size=4096,
+    #     layer=0,
+    #     lr=1e-4,
+    #     warmup_steps=1000,
+    #     lm_name="toy_binding",
+    #     wandb_name="BTK_k8_dS4096",
+    #     k=8,
+    #     device=device,
+    #     submodule_name=args.submodule,
+    # ))
+    # JumpRelu trainer configuration
+    # trainer_cfgs.append(dict(
+    #     trainer=JumpReluTrainer,
+    #     steps=100_000,
+    #     activation_dim=256,
+    #     dict_size=4096,
+    #     layer=0,
+    #     lr=1e-4,
+    #     warmup_steps=1000,
+    #     lm_name="toy_binding",
+    #     wandb_name="JumpRelu_dS4096_sp1_sw2000_t10",
+    #     device=device,
+    #     submodule_name=args.submodule,
+    #     sparsity_penalty=1.0,
+    #     sparsity_warmup_steps= 2000,
+    #     target_l0=10.0, # reduced from 20.0
+    # ))
+    # trainer_cfgs.append(dict(
+    #     trainer=JumpReluTrainer,
+    #     steps=100_000,
+    #     activation_dim=256,
+    #     dict_size=4096,
+    #     layer=0,
+    #     lr=1e-4,
+    #     warmup_steps=1000,
+    #     lm_name="toy_binding",
+    #     wandb_name="JumpRelu_dS4096_sp1_sw2000_t7",
+    #     device=device,
+    #     submodule_name=args.submodule,
+    #     sparsity_penalty=1.0,
+    #     sparsity_warmup_steps= 2000,
+    #     target_l0=7.0, # reduced from 20.0
+    # ))
+    # trainer_cfgs.append(dict(
+    #     trainer=JumpReluTrainer,
+    #     steps=100_000,
+    #     activation_dim=256,
+    #     dict_size=1024,
+    #     layer=0,
+    #     lr=1e-4,
+    #     warmup_steps=1000,
+    #     lm_name="toy_binding",
+    #     wandb_name="JumpRelu_dS1024_sp1_sw2000_t7",
+    #     device=device,
+    #     submodule_name=args.submodule,
+    #     sparsity_penalty=1.0,
+    #     sparsity_warmup_steps= 2000,
+    #     target_l0=7.0, # reduced from 20.0
+    # ))
+    # trainer_cfgs.append(dict(
+    #     trainer=JumpReluTrainer,
+    #     steps=100_000,
+    #     activation_dim=256,
+    #     dict_size=2048,
+    #     layer=0,
+    #     lr=1e-4,
+    #     warmup_steps=1000,
+    #     lm_name="toy_binding",
+    #     wandb_name="JumpRelu_dS2048_sp1_sw2000_t7",
+    #     device=device,
+    #     submodule_name=args.submodule,
+    #     sparsity_penalty=1.0,
+    #     sparsity_warmup_steps= 2000,
+    #     target_l0=7.0, # reduced from 20.0
+    # ))
+    # trainer_cfgs.append(dict(
+    #     trainer=JumpReluTrainer,
+    #     steps=100_000,
+    #     activation_dim=256,
+    #     dict_size=4096,
+    #     layer=0,
+    #     lr=1e-4,
+    #     warmup_steps=1000,
+    #     lm_name="toy_binding",
+    #     wandb_name="JumpRelu_dS4096_sp2_sw2000_t10",
+    #     device=device,
+    #     submodule_name=args.submodule,
+    #     sparsity_penalty=2.0, # increased from 1.0
+    #     sparsity_warmup_steps= 2000,
+    #     target_l0=10.0, # reduced from 20.0
+    # ))
+    # trainer_cfgs.append(dict(
+    #     trainer=JumpReluTrainer,
+    #     steps=100_000,
+    #     activation_dim=256,
+    #     dict_size=4096,
+    #     layer=0,
+    #     lr=1e-4,
+    #     warmup_steps=1000,
+    #     lm_name="toy_binding",
+    #     wandb_name="JumpRelu_dS4096_sp2_sw1000_t10",
+    #     device=device,
+    #     submodule_name=args.submodule,
+    #     sparsity_penalty=2.0, # increased from 1.0
+    #     sparsity_warmup_steps= 1000, # reduced from 2000
+    #     target_l0=10.0, # reduced from 20.0
+    # ))
 
     run_pipeline(
-        [trainer_cfg],
+        trainer_cfgs,
         device=device,
         model_name="custom",
         submodule=args.submodule,
@@ -173,6 +303,7 @@ def main():
         wandb_entity=args.wandb_entity,
         wandb_project=args.wandb_project,
         save_dir=args.save_dir,
+        save_steps=[2_000_000, 3_000_000, 4_000_000, 5_000_000, 6_000_000, 7_000_000, 8_000_000, 9_000_000, 10_000_000, 15_000_000, 20_000_000, 25_000_000, 30_000_000, 35_000_000, 40_000_000, 45_000_000, 50_000_000, 99_999_500],#[],
         log_steps=100,
         verbose=True,
         custom_model=model,
