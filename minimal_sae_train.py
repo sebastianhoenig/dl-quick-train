@@ -125,6 +125,7 @@ def load_weights(model, device):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--steps", type=int, default=30000)
+    parser.add_argument("--steps", type=int, default=30000)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--seq-len", type=int, default=64)
     parser.add_argument("--save-dir", type=str, default="./sae_ckpts_susie_batchtopk_overnight2")
@@ -291,6 +292,7 @@ def main():
     # ))
 
     run_pipeline(
+        trainer_cfgs,
         trainer_cfgs,
         device=device,
         model_name="custom",
