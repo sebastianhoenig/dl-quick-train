@@ -65,11 +65,15 @@ def _select_positions_and_flatten(act: torch.Tensor, tokens: torch.Tensor, submo
     if submodule.endswith(".attn.hook_z"):
         # act: [B, S, H, d_head]
         assert act.ndim == 4, f"Expected [B,S,H,d_head] for hook_z, got {tuple(act.shape)}"
-        if head_index is not None:
-            # take specific head → [B,S,d_head]
-            act = act[:, :, head_index, :]
-        else:
-            print("Unexpected, asked for head but no head_index provided.")
+        if head_index is None:
+            raise ValueError("head_index is required when selecting positions from .attn.hook_z")
+        n_heads = act.shape[2]
+        if not (0 <= head_index < n_heads):
+            raise ValueError(
+                f"head_index {head_index} out of range for activation with {n_heads} heads"
+            )
+        # take specific head → [B,S,d_head]
+        act = act[:, :, head_index, :]
     else:
         # resid_post: [B, S, d_model]
         assert act.ndim == 3, f"Expected [B,S,d_model] for resid_post, got {tuple(act.shape)}"

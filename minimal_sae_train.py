@@ -59,12 +59,11 @@ class TrainStream(IterableDataset):
     def set_epoch(self, e:int): self._epoch = e
     def __iter__(self):
         start = (self._epoch * self.size) % self.size
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         for i in range(self.size):
             local = (start + i) % self.size
             idx = self.offset + local
             seq, label = produce_example_by_index(idx)
-            yield torch.tensor(seq, dtype=torch.long, device=device), torch.tensor(label, dtype=torch.long, device=device)
+            yield torch.tensor(seq, dtype=torch.long), torch.tensor(label, dtype=torch.long)
 
 def collate_fn(batch):
     B = len(batch)
@@ -126,7 +125,16 @@ def main():
     parser.add_argument("--steps", type=int, default=30000)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--seq-len", type=int, default=64)
+    parser.add_argument("--dict-size", type=int, default=4096)
+    parser.add_argument("--k", type=int, default=8)
     parser.add_argument("--save-dir", type=str, default="./sae_ckpts")
+    parser.add_argument(
+        "--save-steps",
+        type=int,
+        nargs="*",
+        default=None,
+        help="Optional checkpoint steps. Defaults to saving only at the final step.",
+    )
     parser.add_argument("--use-wandb", action="store_true")
     parser.add_argument("--wandb-entity", type=str, default="hoenigsebastian-eth-z-rich")
     parser.add_argument("--wandb-project", type=str, default="SAE")
@@ -137,6 +145,54 @@ def main():
     parser.add_argument("--head-index", type=int, default=None,
                         help="For blocks.0.attn.hook_z: choose a head (e.g., 0)")
     args = parser.parse_args()
+
+    if args.submodule == "blocks.0.hook_resid_post":
+        activation_dim = 256
+    elif args.submodule == "blocks.0.attn.hook_z":
+        if args.head_index is None:
+            raise ValueError("--head-index is required when training on blocks.0.attn.hook_z")
+        activation_dim = 128
+    else:
+        raise ValueError(
+            f"Unsupported submodule {args.submodule}. "
+            "Expected blocks.0.hook_resid_post or blocks.0.attn.hook_z."
+        )
+
+    supported_configs = {
+        ("blocks.0.hook_resid_post", "sep", None),
+        ("blocks.0.attn.hook_z", "sep", 0),
+        ("blocks.0.attn.hook_z", "sep", 1),
+    }
+    current_config = (args.submodule, args.position_selector, args.head_index)
+    if current_config not in supported_configs:
+        raise ValueError(
+            "This script is currently restricted to the three planned comma-site SAE runs: "
+            "(blocks.0.hook_resid_post, sep), "
+            "(blocks.0.attn.hook_z, sep, head 0), "
+            "or (blocks.0.attn.hook_z, sep, head 1)."
+        )
+
+    save_steps = args.save_steps if args.save_steps is not None else [args.steps - 1]
+
+    if args.submodule == "blocks.0.hook_resid_post":
+        site_name = f"b0_residpost_{args.position_selector}"
+    else:
+        site_name = f"b0_hookz_h{args.head_index}_{args.position_selector}"
+    run_name = f"{site_name}_d{args.dict_size}_k{args.k}"
+    save_dir = os.path.join(args.save_dir, run_name)
+
+    print("SAE training configuration")
+    print(f"  run_name: {run_name}")
+    print(f"  submodule: {args.submodule}")
+    print(f"  position_selector: {args.position_selector}")
+    print(f"  head_index: {args.head_index}")
+    print(f"  activation_dim: {activation_dim}")
+    print(f"  dict_size: {args.dict_size}")
+    print(f"  k: {args.k}")
+    print(f"  steps: {args.steps}")
+    print(f"  batch_size: {args.batch_size}")
+    print(f"  save_dir: {save_dir}")
+    print(f"  save_steps: {save_steps}")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = build_model().to(device)
@@ -158,26 +214,19 @@ def main():
         lm_name="toy_binding",
         wandb_name="toy_binding_sae",
     )"""
-    sweep_ks = [4, 8, 12]
-    dict_sizes = [1024, 2048, 4096]
-
-    trainer_cfgs = []
-    for k in sweep_ks:
-        for d_s in dict_sizes:
-            trainer_cfgs.append(dict(
-                trainer=BatchTopKTrainer,
-                steps=20000,
-                activation_dim=256,
-                dict_size=d_s,
-                layer=0,
-                lr=1e-4,
-                warmup_steps=1000,
-                lm_name="toy_binding",
-                # Make each run name unique & informative:
-                wandb_name=f"BTK_k{k}_dS{d_s}",
-                k=k,
-                device=device,
-            ))
+    trainer_cfgs = [dict(
+        trainer=BatchTopKTrainer,
+        steps=args.steps,
+        activation_dim=activation_dim,
+        dict_size=args.dict_size,
+        layer=0,
+        lr=1e-4,
+        warmup_steps=1000,
+        lm_name="toy_binding",
+        wandb_name=run_name,
+        k=args.k,
+        device=device,
+    )]
 
     run_pipeline(
         trainer_cfgs,
@@ -191,8 +240,8 @@ def main():
         use_transformer_lens=True,
         wandb_entity=args.wandb_entity,
         wandb_project=args.wandb_project,
-        save_dir=args.save_dir,
-        save_steps=[],
+        save_dir=save_dir,
+        save_steps=save_steps,
         log_steps=100,
         verbose=True,
         custom_model=model,
