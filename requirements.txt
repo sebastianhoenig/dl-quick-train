@@ -1,10 +1,9 @@
-torch
 datasets
 dictionary-learning
-nnsight
+nnsight==0.3.7
 tqdm
-transformers
-transformer-lens
+transformers==4.49.0
+transformer-lens==2.10.0
 wandb
 matplotlib
 seaborn

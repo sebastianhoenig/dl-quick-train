@@ -224,7 +224,7 @@ def main():
         site_name = f"b0_residpost_{args.position_selector}"
     else:
         site_name = f"b0_hookz_h{args.head_index}_{args.position_selector}"
-    run_name = f"{site_name}_d{args.dict_size}_k{args.k}"
+    run_name = f"{site_name}_sweep_d1024-4096_k8-16"
     save_dir = os.path.join(args.save_dir, run_name)
 
     print("SAE training configuration")
@@ -233,8 +233,8 @@ def main():
     print(f"  position_selector: {args.position_selector}")
     print(f"  head_index: {args.head_index}")
     print(f"  activation_dim: {activation_dim}")
-    print(f"  dict_size: {args.dict_size}")
-    print(f"  k: {args.k}")
+    print("  dict_sizes: [1024, 2048, 4096]")
+    print("  ks: [8, 16]")
     print(f"  steps: {args.steps}")
     print(f"  batch_size: {args.batch_size}")
     print(f"  save_dir: {save_dir}")
@@ -246,22 +246,24 @@ def main():
 
     train_stream = TrainStream()
     wrapped = CustomDatasetWrapper(train_stream, batch_size=args.batch_size)
-
-    trainer_cfgs = [
-        dict(
-            trainer=BatchTopKTrainer,
-            steps=args.steps,
-            activation_dim=activation_dim,
-            dict_size=args.dict_size,
-            layer=0,
-            lr=1e-4,
-            warmup_steps=1000,
-            lm_name="toy_binding",
-            wandb_name=run_name,
-            k=args.k,
-            device=device,
-        )
-    ]
+    trainer_cfgs = []
+    for dict_size in (1024, 2048, 4096):
+        for k in (8, 16):
+            trainer_cfgs.append(
+                dict(
+                    trainer=BatchTopKTrainer,
+                    steps=args.steps,
+                    activation_dim=activation_dim,
+                    dict_size=dict_size,
+                    layer=0,
+                    lr=1e-4,
+                    warmup_steps=1000,
+                    lm_name="toy_binding",
+                    wandb_name=f"{site_name}_d{dict_size}_k{k}",
+                    k=k,
+                    device=device,
+                )
+            )
 
     run_pipeline(
         trainer_cfgs,
