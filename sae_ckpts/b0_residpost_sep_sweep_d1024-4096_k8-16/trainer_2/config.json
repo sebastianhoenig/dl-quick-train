@@ -1,0 +1,23 @@
+{
+    "trainer": {
+        "trainer_class": "BatchTopKTrainer",
+        "dict_class": "BatchTopKSAE",
+        "lr": 0.0001,
+        "steps": 1500000,
+        "auxk_alpha": 0.03125,
+        "warmup_steps": 1000,
+        "decay_start": null,
+        "threshold_beta": 0.999,
+        "threshold_start_step": 1000,
+        "top_k_aux": 128,
+        "seed": null,
+        "activation_dim": 256,
+        "dict_size": 2048,
+        "k": 8,
+        "device": "cuda",
+        "layer": 0,
+        "lm_name": "toy_binding",
+        "wandb_name": "b0_residpost_sep_d2048_k8",
+        "submodule_name": null
+    }
+}
