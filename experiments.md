@@ -21,7 +21,7 @@ position.
 | P0.2 | QK/OV weight analysis | `scripts/run_qk_ov.py` | ✅ done | `qk_ov/*.npz` |
 | P0.3 | Mean-ablation necessity | `scripts/build_mean_cache.py` + `scripts/run_ablation.py` | ✅ done | `ablation/*.json` |
 | P0.4 | SAE recovery (composed vs isolated) | `scripts/run_sae_eval.py` | ✅ done (counter-evidence; see below) | `sae_eval/results.{json,md}` |
-| P0.4b | Train L0H1 (payload) SAE sweep | `minimal_sae_train.py` | ❌ not run | — |
+| P0.4b | Train L0H1 (payload) SAE sweep + eval | `minimal_sae_train.py` + `run_sae_eval.py` | ✅ done (30k steps; see RESULTS P0.4) | `sae_ckpts/b0_hookz_h1_sep_sweep_d1024-4096_k8-16/` |
 | P1 | Gemma-2B in-the-wild SAE test | `scripts/gemma/*` | ❌ not run (needs `sae_lens` + GPU) | `gemma/summary.json` |
 | P2 | Multi-seed LM training | `scripts/seeds/*` | ❌ not run (needs ~2–4h × 5 on GPU) | `seeds/table.md` |
 
@@ -47,12 +47,15 @@ toy model" claim does not reproduce.
 Two confounds that must be resolved before publishing the dark-matter
 narrative:
 
-1. **No L0H1 (payload) SAE exists.** Only H0 was swept. A fair
-   composed-vs-isolated comparison needs both heads trained.
-2. **Head labels look inverted at L0H0.** F1(raw Eq) on H0 = 0.034 but
-   F1(raw Tq) on H0 = 0.929. H0's SEP `hook_z` decodes relation, not
-   entity. Revisit the address/payload assignment produced by
-   `run_verification.py`.
+1. **Head labels mis-named.** Raw-F1 at SEP: H0 → Tq=0.929, E2q=0.000;
+   H1 → Tq=0.063, E2q=0.205. Neither head encodes Eq. "H0 = address"
+   really means "writes the *relation*"; "H1 = payload" means "writes
+   the *tail entity*". Patching results still hold; only the names
+   need fixing.
+2. **One thesis-consistent signal (H1, k=16).** On L0H1 payload,
+   k=16 SAEs lose ~5 F1 points of E2q vs raw at every dict width
+   (0.205 → ~0.15); k=8 is fine. Confounded by the H1 sweep only
+   running 30k steps (H0: 1.25M, resid_post: 1M).
 
 ---
 

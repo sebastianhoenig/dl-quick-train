@@ -132,7 +132,18 @@ activations, predicting {Eq, Tq, E2q} at the target-fact SEP.
 | 4096 | 8 | 0.006 | 8.0 | +0.034 | 0.000 | −0.017 |
 | 4096 | 16 | 0.000 | 16.0 | −0.040 | +0.011 | −0.014 |
 
-**Isolated state** (`blocks.0.attn.hook_z`, head 0, d=128), step 1,250,000:
+**Isolated payload** (`blocks.0.attn.hook_z`, head 1, d=128), step 29,999:
+
+| dict | k | FVU | L0 | F1_raw Eq | F1_sae Eq | F1_raw Tq | F1_sae Tq | F1_raw E2q | F1_sae E2q | gap E2q |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1024 | 8 | 0.000 | 8.0 | 0.000 | 0.000 | 0.063 | 0.058 | 0.205 | 0.226 | −0.021 |
+| 1024 | 16 | 0.000 | 15.8 | 0.000 | 0.000 | 0.063 | 0.059 | 0.205 | **0.150** | **+0.055** |
+| 2048 | 8 | 0.000 | 7.9 | 0.000 | 0.000 | 0.063 | 0.072 | 0.205 | 0.229 | −0.024 |
+| 2048 | 16 | 0.000 | 15.8 | 0.000 | 0.000 | 0.063 | 0.064 | 0.205 | **0.150** | **+0.055** |
+| 4096 | 8 | 0.000 | 7.8 | 0.000 | 0.000 | 0.063 | 0.063 | 0.205 | 0.207 | −0.002 |
+| 4096 | 16 | 0.000 | 15.6 | 0.000 | 0.000 | 0.063 | 0.058 | 0.205 | **0.160** | **+0.045** |
+
+**Isolated address** (`blocks.0.attn.hook_z`, head 0, d=128), step 1,250,000:
 
 | dict | k | FVU | L0 | gap Eq | gap Tq | gap E2q |
 |---:|---:|---:|---:|---:|---:|---:|
@@ -143,23 +154,43 @@ activations, predicting {Eq, Tq, E2q} at the target-fact SEP.
 | 4096 | 8 | 0.001 | 7.9 | +0.007 | −0.071 | 0.000 |
 | 4096 | 16 | 0.000 | 15.9 | +0.011 | −0.034 | 0.000 |
 
-**Reading — counter-evidence to the strong form of the thesis on this toy
-model.** Top-k SAEs achieve near-perfect reconstruction on *both* sites
-(FVU ≈ 0), and probe-F1 gaps sit within ±0.04 in every cell — often
-*negative* on the composed site (SAE features predict Eq/E2q marginally
-better than raw). The "Top-k SAEs fail specifically on the composed E1+T
-superposition" claim does not reproduce here.
+**Reading — mixed evidence, with one thesis-consistent signal only on the
+isolated payload site.** Top-k SAEs achieve near-perfect reconstruction
+on all three sites (FVU ≈ 0), yet probe-F1 recovery tells a more nuanced
+story:
 
-Caveats before drawing a strong conclusion:
-1. **L0H1 SAE not trained.** Only `hook_z` head 0 was swept; the payload
-   head has no SAE, so we can only compare composed vs. address-isolated.
-   To close this arm: `PYTHONPATH=. python minimal_sae_train.py --submodule
-   blocks.0.attn.hook_z --head-index 1 --position-selector sep`.
-2. **Surprising isolated-site pattern.** F1(raw Eq)=0.034 but F1(raw Tq)=
-   0.929 on H0's `hook_z`. The "address head encodes Eq" assumption from
-   the roadmap looks inverted — H0's SEP `hook_z` linearly decodes the
-   *relation* almost perfectly and the *query entity* at chance. Worth
-   re-examining head labelling before publishing.
+- **Composed `resid_post`.** Gaps within ±0.04 in every cell — often
+  *negative* (SAE ≳ raw). The "Top-k SAEs fail specifically on the
+  composed E1+T superposition" prediction does **not** reproduce here.
+- **Isolated H0 (address).** Gaps essentially zero on Eq (both raw and
+  SAE decode at chance, F1 ≈ 0.03) and small / mixed on Tq.
+- **Isolated H1 (payload).** This is the *only* site with a
+  thesis-consistent pattern: every **k=16** SAE loses ~5 F1 points of
+  E2q info vs. raw (0.205 → ~0.15) despite FVU ≈ 0. k=8 is fine. That
+  signature — perfect MSE, degraded factorisation — is the dark-matter
+  flavour, but only at one width setting on one isolated site, and in
+  absolute terms the probe is weak (raw F1 = 0.205 on a 100-way task).
+
+**Head-role reinterpretation forced by the F1s.** Raw hook_z decodes:
+H0 → Tq (0.929), E2q (0.000); H1 → Tq (0.063), E2q (0.205). Neither
+head encodes Eq linearly at SEP. So "H0 = address" really means "H0
+writes the *relation*", and "H1 = payload" means "H1 writes the *tail
+entity*" — calling L0H0 a "query-entity encoder" is wrong. The address
+signal at SEP is Tq, not Eq. This is consistent with the patching
+results (L0H0 controls routing = Tq-based lookup; L0H1 moves the
+retrieved payload = E2q) but changes the narrative.
+
+The honest statement for the paper: on this 2L2H attn-only setup, Top-k
+SAEs of modest width (d ∈ {1024,2048,4096}, k ∈ {8,16}) recover the
+*composed* retrieval state as well as raw activations. The only site
+where wider-k SAEs hurt recovery is L0H1's isolated `hook_z`, and only
+for E2q at k=16. A dark-matter story for this model therefore needs
+either (a) a larger / more realistic model (P1 Gemma), or (b) a causal
+recovery test rather than a static linear probe.
+
+Caveat: H1 SAEs were trained for only 30k steps (vs 1.25M for H0 and 1M
+for resid_post). If longer training closes the k=16 E2q gap, the lone
+thesis-consistent signal disappears.
 
 The honest statement for the paper: on this 2L2H attn-only setup, Top-k
 SAEs of modest width (d=1024–4096, k=8–16) recover the composed retrieval
