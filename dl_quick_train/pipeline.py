@@ -3,18 +3,17 @@ from functools import partial
 import multiprocessing as mp
 import os
 import queue
+from contextlib import nullcontext
 
 import torch
-from datasets import load_dataset, DownloadConfig
-from dictionary_learning import AutoEncoder
-from dictionary_learning.trainers import StandardTrainer
-from nnsight import LanguageModel
 from transformer_lens import HookedTransformer
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import AutoTokenizer
 
-import wandb
+# Heavy / optional imports are done lazily inside ``run_pipeline`` so that
+# analysis-only scripts (which never call ``run_pipeline``) don't pull in
+# nnsight / datasets / wandb / transformers and can keep working even if the
+# environment's transformers/torchvision install is broken.
 
 LAYER_TO_TRAIN = 0
 TRAIN_LAST_LAYER = True if LAYER_TO_TRAIN == 1 else False 
@@ -186,6 +185,17 @@ def log_stats(
                 log_queues[i].put(log)
 
 
+def _lazy_imports():
+    """Import heavy deps on demand; only called by ``run_pipeline``."""
+    global load_dataset, DownloadConfig, AutoEncoder, StandardTrainer, LanguageModel, AutoTokenizer, wandb
+    from datasets import load_dataset, DownloadConfig  # noqa
+    from dictionary_learning import AutoEncoder  # noqa
+    from dictionary_learning.trainers import StandardTrainer  # noqa
+    from nnsight import LanguageModel  # noqa
+    from transformers import AutoTokenizer  # noqa
+    import wandb  # noqa
+
+
 def collate(batch, tok, seq_len):
     # tok comes from parent, safe to pickle; do the heavy work here
     return tok(
@@ -223,8 +233,9 @@ def run_pipeline(
     head_index=None,
     **kwargs,
 ):
+    _lazy_imports()
     mp.set_start_method("spawn", force=True)
-    
+
     # Handle custom model and dataset
     if custom_model is not None:
         model = custom_model
@@ -322,7 +333,8 @@ def run_pipeline(
     else:
         save_dirs = [None for _ in trainer_configs]
 
-    stream = torch.cuda.Stream()
+    use_cuda_stream = (device is not None) and str(device).startswith("cuda") and torch.cuda.is_available()
+    stream = torch.cuda.Stream() if use_cuda_stream else None
         
     for step in tqdm(range(steps), desc="Training"):
         # Handle custom dataset vs standard dataset
@@ -342,8 +354,9 @@ def run_pipeline(
             print(f"Warning: Got None batch at step {step}, skipping...")
             continue
             
-        # Use CUDA stream if available, otherwise no stream
-        with torch.cuda.stream(stream):
+        # Use CUDA stream only when actually on CUDA
+        stream_ctx = torch.cuda.stream(stream) if use_cuda_stream else nullcontext()
+        with stream_ctx:
             with torch.no_grad():
                 if use_transformer_lens:
                     _, cache = model.run_with_cache(

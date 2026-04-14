@@ -175,3 +175,8 @@ cython_debug/
 
 sae_checkpoints/
 wandb/
+
+# Project artifacts (large/generated)
+paper.tex
+sae_ckpts/
+experiments/results/
