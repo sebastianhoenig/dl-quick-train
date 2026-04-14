@@ -97,13 +97,14 @@ class SaeResult:
 
 
 @torch.no_grad()
-def _extract_activations(model, batch, device) -> Dict[str, torch.Tensor]:
-    """Return activations at target-fact SEP for the two required sites."""
+def _extract_activations(model, batch, device, position: str = "sep") -> Dict[str, torch.Tensor]:
+    """Return activations at the chosen position for the two required sites."""
     batch = batch.to(device)
     names = ["blocks.0.hook_resid_post", "blocks.0.attn.hook_z"]
     _, cache = model.run_with_cache(batch.tokens, names_filter=names)
-    resid = gather_at_positions(cache["blocks.0.hook_resid_post"], batch.target_fact_sep_position)
-    z = gather_at_positions(cache["blocks.0.attn.hook_z"], batch.target_fact_sep_position)
+    pos = batch.target_fact_sep_position if position == "sep" else batch.q_position
+    resid = gather_at_positions(cache["blocks.0.hook_resid_post"], pos)
+    z = gather_at_positions(cache["blocks.0.attn.hook_z"], pos)
     return {
         "blocks.0.hook_resid_post": resid,          # [N, 256]
         "blocks.0.attn.hook_z": z,                  # [N, n_heads, d_head]
@@ -172,16 +173,20 @@ def main():
     ap.add_argument("--out", type=str, default=DEFAULT_OUT)
     ap.add_argument("--sweeps", nargs="*", default=None,
                     help="Optional subset of sweep directory names")
+    ap.add_argument("--position", choices=["sep", "q"], default="sep",
+                    help="Where to extract activations (target-fact SEP or Q token).")
+    ap.add_argument("--model-ckpt", type=str, default=None,
+                    help="Local LM checkpoint; defaults to released 2L2H_Final.")
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = build_model().to(device)
-    load_weights(model, device)
+    load_weights(model, device, ckpt_path=args.model_ckpt)
 
     batch = build_eval_batch(args.n, offset=args.offset)
-    acts = _extract_activations(model, batch, device)
+    acts = _extract_activations(model, batch, device, position=args.position)
 
     labels = {
         "Eq": batch.eq_token.cpu().numpy(),

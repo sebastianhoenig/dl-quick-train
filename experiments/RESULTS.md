@@ -121,112 +121,168 @@ core thesis. Per (dict_size, k) we report reconstruction FVU + mean L0, plus
 the macro-F1 gap between a logistic probe on SAE features vs. raw
 activations, predicting {Eq, Tq, E2q} at the target-fact SEP.
 
-**Composed state** (`blocks.0.hook_resid_post`, d=256), step 1,000,000:
+**Composed state** (`blocks.0.hook_resid_post`, d=256), step 1,000,000.
+Negative gap means SAE > raw.
 
-| dict | k | FVU | L0 | gap Eq | gap Tq | gap E2q |
-|---:|---:|---:|---:|---:|---:|---:|
-| 1024 | 8 | 0.003 | 7.9 | −0.040 | 0.000 | −0.030 |
-| 1024 | 16 | 0.000 | 16.1 | −0.016 | +0.016 | −0.014 |
-| 2048 | 8 | 0.004 | 8.0 | −0.011 | 0.000 | −0.029 |
-| 2048 | 16 | 0.000 | 16.0 | −0.013 | +0.011 | −0.031 |
-| 4096 | 8 | 0.006 | 8.0 | +0.034 | 0.000 | −0.017 |
-| 4096 | 16 | 0.000 | 16.0 | −0.040 | +0.011 | −0.014 |
-
-**Isolated payload** (`blocks.0.attn.hook_z`, head 1, d=128), step 29,999:
-
-| dict | k | FVU | L0 | F1_raw Eq | F1_sae Eq | F1_raw Tq | F1_sae Tq | F1_raw E2q | F1_sae E2q | gap E2q |
-|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1024 | 8 | 0.000 | 8.0 | 0.000 | 0.000 | 0.063 | 0.058 | 0.205 | 0.226 | −0.021 |
-| 1024 | 16 | 0.000 | 15.8 | 0.000 | 0.000 | 0.063 | 0.059 | 0.205 | **0.150** | **+0.055** |
-| 2048 | 8 | 0.000 | 7.9 | 0.000 | 0.000 | 0.063 | 0.072 | 0.205 | 0.229 | −0.024 |
-| 2048 | 16 | 0.000 | 15.8 | 0.000 | 0.000 | 0.063 | 0.064 | 0.205 | **0.150** | **+0.055** |
-| 4096 | 8 | 0.000 | 7.8 | 0.000 | 0.000 | 0.063 | 0.063 | 0.205 | 0.207 | −0.002 |
-| 4096 | 16 | 0.000 | 15.6 | 0.000 | 0.000 | 0.063 | 0.058 | 0.205 | **0.160** | **+0.045** |
+| dict | k | FVU | L0 | F1_raw Eq | F1_sae Eq | gap Eq | F1_raw Tq | F1_sae Tq | gap Tq | F1_raw E2q | F1_sae E2q | gap E2q |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1024 | 8 | 0.003 | 8.0 | 0.769 | 0.915 | −0.146 | 1.000 | 0.996 | +0.004 | 0.383 | 0.807 | **−0.423** |
+| 1024 | 16 | 0.000 | 16.0 | 0.769 | 0.848 | −0.079 | 1.000 | 0.998 | +0.002 | 0.383 | 0.694 | **−0.310** |
+| 2048 | 8 | 0.003 | 8.0 | 0.769 | 0.822 | −0.053 | 1.000 | 0.998 | +0.002 | 0.383 | 0.815 | **−0.431** |
+| 2048 | 16 | 0.000 | 16.0 | 0.769 | 0.814 | −0.045 | 1.000 | 1.000 | +0.000 | 0.383 | 0.732 | **−0.349** |
+| 4096 | 8 | 0.006 | 8.0 | 0.769 | 0.741 | +0.028 | 1.000 | 0.996 | +0.004 | 0.383 | 0.832 | **−0.448** |
+| 4096 | 16 | 0.000 | 16.0 | 0.769 | 0.815 | −0.046 | 1.000 | 1.000 | +0.000 | 0.383 | 0.749 | **−0.366** |
 
 **Isolated address** (`blocks.0.attn.hook_z`, head 0, d=128), step 1,250,000:
 
-| dict | k | FVU | L0 | gap Eq | gap Tq | gap E2q |
-|---:|---:|---:|---:|---:|---:|---:|
-| 1024 | 8 | 0.001 | 7.9 | 0.000 | −0.040 | 0.000 |
-| 1024 | 16 | 0.000 | 15.8 | +0.011 | +0.014 | 0.000 |
-| 2048 | 8 | 0.001 | 7.9 | 0.000 | −0.013 | 0.000 |
-| 2048 | 16 | 0.000 | 15.9 | +0.020 | +0.015 | 0.000 |
-| 4096 | 8 | 0.001 | 7.9 | +0.007 | −0.071 | 0.000 |
-| 4096 | 16 | 0.000 | 15.9 | +0.011 | −0.034 | 0.000 |
+| dict | k | FVU | L0 | F1_raw Eq | F1_sae Eq | gap Eq | F1_raw Tq | F1_sae Tq | gap Tq | F1_raw E2q | F1_sae E2q | gap E2q |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1024 | 8 | 0.001 | 7.9 | 0.433 | 0.621 | −0.187 | 1.000 | 1.000 | 0.000 | 0.002 | 0.001 | +0.001 |
+| 1024 | 16 | 0.000 | 15.8 | 0.433 | 0.400 | +0.033 | 1.000 | 1.000 | 0.000 | 0.002 | 0.002 | 0.000 |
+| 2048 | 8 | 0.001 | 7.9 | 0.433 | 0.645 | −0.212 | 1.000 | 1.000 | 0.000 | 0.002 | 0.001 | +0.001 |
+| 2048 | 16 | 0.000 | 15.9 | 0.433 | 0.368 | +0.066 | 1.000 | 1.000 | 0.000 | 0.002 | 0.001 | +0.001 |
+| 4096 | 8 | 0.001 | 7.9 | 0.433 | 0.617 | −0.184 | 1.000 | 1.000 | 0.000 | 0.002 | 0.001 | +0.001 |
+| 4096 | 16 | 0.000 | 15.9 | 0.433 | 0.371 | +0.062 | 1.000 | 1.000 | 0.000 | 0.002 | 0.001 | 0.000 |
 
-**Reading — mixed evidence, with one thesis-consistent signal only on the
-isolated payload site.** Top-k SAEs achieve near-perfect reconstruction
-on all three sites (FVU ≈ 0), yet probe-F1 recovery tells a more nuanced
-story:
+**Isolated payload** (`blocks.0.attn.hook_z`, head 1, d=128), step 29,999:
 
-- **Composed `resid_post`.** Gaps within ±0.04 in every cell — often
-  *negative* (SAE ≳ raw). The "Top-k SAEs fail specifically on the
-  composed E1+T superposition" prediction does **not** reproduce here.
-- **Isolated H0 (address).** Gaps essentially zero on Eq (both raw and
-  SAE decode at chance, F1 ≈ 0.03) and small / mixed on Tq.
-- **Isolated H1 (payload).** This is the *only* site with a
-  thesis-consistent pattern: every **k=16** SAE loses ~5 F1 points of
-  E2q info vs. raw (0.205 → ~0.15) despite FVU ≈ 0. k=8 is fine. That
-  signature — perfect MSE, degraded factorisation — is the dark-matter
-  flavour, but only at one width setting on one isolated site, and in
-  absolute terms the probe is weak (raw F1 = 0.205 on a 100-way task).
+| dict | k | FVU | L0 | F1_raw Eq | F1_sae Eq | gap Eq | F1_raw Tq | F1_sae Tq | gap Tq | F1_raw E2q | F1_sae E2q | gap E2q |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1024 | 8 | 0.000 | 8.0 | 0.003 | 0.003 | 0.000 | 0.087 | 0.089 | −0.002 | 0.988 | 0.975 | +0.013 |
+| 1024 | 16 | 0.000 | 15.9 | 0.003 | 0.003 | 0.000 | 0.087 | 0.098 | −0.010 | 0.988 | 0.985 | +0.003 |
+| 2048 | 8 | 0.000 | 8.1 | 0.003 | 0.003 | 0.000 | 0.087 | 0.110 | −0.022 | 0.988 | 0.988 | 0.000 |
+| 2048 | 16 | 0.000 | 16.1 | 0.003 | 0.003 | 0.000 | 0.087 | 0.093 | −0.006 | 0.988 | 0.988 | 0.000 |
+| 4096 | 8 | 0.000 | 8.0 | 0.003 | 0.003 | +0.001 | 0.087 | 0.101 | −0.013 | 0.988 | 0.988 | 0.000 |
+| 4096 | 16 | 0.000 | 15.8 | 0.003 | 0.002 | +0.001 | 0.087 | 0.097 | −0.010 | 0.988 | 0.976 | +0.012 |
 
-**Head-role reinterpretation forced by the F1s.** Raw hook_z decodes:
-H0 → Tq (0.929), E2q (0.000); H1 → Tq (0.063), E2q (0.205). Neither
-head encodes Eq linearly at SEP. So "H0 = address" really means "H0
-writes the *relation*", and "H1 = payload" means "H1 writes the *tail
-entity*" — calling L0H0 a "query-entity encoder" is wrong. The address
-signal at SEP is Tq, not Eq. This is consistent with the patching
-results (L0H0 controls routing = Tq-based lookup; L0H1 moves the
-retrieved payload = E2q) but changes the narrative.
+**Reading — the composed site *inverts* the thesis.** At target-SEP,
+Top-k SAE features give a **much better** logistic probe for E2q than
+the raw 256-dim residual (0.38 → 0.69–0.83). Across all six (d, k)
+combinations the gap is −0.31 to −0.45; k=8 is stronger than k=16.
+The interpretation: raw resid_post packs E2q into a diffuse superposed
+direction the linear probe cannot cleanly separate, while the SAE's
+Top-k feature set makes it one-hot. This is the opposite of the paper's
+thesis — the SAE *rescues* linear decodability of the retrieved
+payload, rather than destroying it.
 
-The honest statement for the paper: on this 2L2H attn-only setup, Top-k
-SAEs of modest width (d ∈ {1024,2048,4096}, k ∈ {8,16}) recover the
-*composed* retrieval state as well as raw activations. The only site
-where wider-k SAEs hurt recovery is L0H1's isolated `hook_z`, and only
-for E2q at k=16. A dark-matter story for this model therefore needs
-either (a) a larger / more realistic model (P1 Gemma), or (b) a causal
-recovery test rather than a static linear probe.
+**Head roles at SEP, re-read from the corrected tables:**
 
-Caveat: H1 SAEs were trained for only 30k steps (vs 1.25M for H0 and 1M
-for resid_post). If longer training closes the k=16 E2q gap, the lone
-thesis-consistent signal disappears.
+- **H0 (address).** Raw Tq F1 = 1.000 and raw E2q F1 = 0.002.
+  H0 writes the *relation* at SEP. Raw Eq F1 = 0.433 is well above
+  chance (1/100) — H0 also retains a partial view of the query
+  entity. SAE at k=8 *boosts* H0 Eq F1 by ~0.2 points; k=16 slightly
+  hurts it.
+- **H1 (payload).** Raw E2q F1 = 0.988 and raw Eq F1 = 0.003.
+  H1 writes the *tail entity* at SEP with near-perfect linear
+  decodability. SAE matches raw within ±0.01 — the toy-model thesis
+  signature (SAE degrades isolated-head decodability) is essentially
+  absent.
 
-The honest statement for the paper: on this 2L2H attn-only setup, Top-k
-SAEs of modest width (d=1024–4096, k=8–16) recover the composed retrieval
-state as well as they recover the isolated components. A dark-matter
-story requires either (a) a larger / more realistic model (P1 Gemma), or
-(b) a probing target where raw-vs-SAE diverges — e.g. a causal
-intervention through the Layer-1 retrieval head rather than a static
-linear probe.
+Patching labels hold (L0H0 routes, L0H1 carries payload) but the SEP
+names are "relation head" and "tail-entity head", not "query-entity
+encoder" and "payload mover".
 
----
-
-## P1 — Gemma-2B (scripts ready, not yet executed)
-
-`scripts/gemma/` contains:
-- `gemma_prompts.py` — 500 natural-language relational prompts with
-  single-token tail entities (validated against the live tokenizer).
-- `run_gemma_patching.py` — layer × head denoising patching on Gemma-2B to
-  locate the retrieval-router head for the task.
-- `run_gemma_sae.py` — loads the matching Gemma Scope residual SAE and
-  reports reconstruction MSE plus a macro-F1 gap between a logistic probe on
-  SAE features vs. raw residual.
-
-Not run here because Gemma-2B weights and `sae_lens` are not installed in
-this environment.
+**Honest statement for the paper.** On this 2L2H attn-only setup,
+Top-k SAEs don't *fail* on the composed state — they **win**, by a
+very large margin on E2q. The only site with a ≥ 0.05 positive gap
+anywhere is none (previous "H1 k=16 loses 5 F1 points" claim came
+from a stale snapshot; the current artifact shows gaps within ±0.013
+on H1). A dark-matter story for this toy model does not survive a
+static linear-probe test; a causal-intervention test is the only
+remaining path (see `scripts/run_sae_causal.py`, TBD).
 
 ---
 
-## P2 — multi-seed LM training (scripts ready, not yet executed)
+## P1 — Gemma-2B in-the-wild SAE test
 
-`scripts/seeds/train_lm.py` trains one 2L2H attention-only LM from scratch
-(AdamW, lr=5e-4, wd=1e-2, cosine schedule, 1k warmup, 200k steps, batch 256).
-`scripts/seeds/run_seed_sweep.py` trains seeds {0..4} and re-runs the
-verification pre-step on each, emitting a markdown table.
+`scripts/gemma/run_gemma_patching.py` → `experiments/results/gemma/gemma_head_roles.json`
+`scripts/gemma/run_gemma_sae.py` → `experiments/results/gemma/summary.json`
 
-Smoke-tested end-to-end for 200 steps: loss descends from 4.84 → 4.44,
-checkpoint saves/loads correctly through the verification path.
+**Router identification** (layer × head denoising patching, N=200 prompts,
+clean logit 13.62, corrupt 12.47): the max positive denoising score is
+**layer 8, head 1 = +0.98** (recovers ~85 % of the clean–corrupt gap). A
+handful of deeper cells (L14H5, L16H2, L17H4) produce large *negative*
+scores, consistent with those heads moving the retrieval forward rather than
+being the router itself.
+
+**SAE recovery on the identified router** (`gemma-scope-2b-pt-res`, L8,
+N=500 prompts):
+
+| SAE | mse_normalized | F1_raw | F1_sae | gap (raw − sae) |
+|---|---:|---:|---:|---:|
+| `width_16k/average_l0_71` | 0.413 | 0.208 | 0.137 | **+0.071** |
+| `width_65k/average_l0_59` | 0.395 | 0.208 | 0.207 | **+0.002** |
+
+**Reading — the thesis signal is bucket-dependent and collapses at
+width_65k.** Reconstruction error is comparable across widths (mse ≈
+0.40), but the probe-F1 gap evaporates when the SAE is wider: +0.071
+at width_16k shrinks to +0.002 at width_65k. In other words, the
+tail-entity information is present in the raw residual *and* in a
+wider SAE's features; width_16k just doesn't have enough capacity to
+keep it linearly decodable. That is a width-under-provisioning story,
+not a fundamental dark-matter failure of Top-k SAEs.
+
+Implication for the paper: the original P1 headline ("Gemma Scope
+leaves a 7-point F1 gap") needs to be re-scoped as "narrow Gemma Scope
+buckets leave a gap that wider buckets close". The external-validity
+claim for the strong dark-matter thesis no longer holds on the
+evidence collected here.
+
+---
+
+## P2 — multi-seed LM training
+
+`scripts/seeds/run_seed_sweep.py` → `experiments/results/seeds/table.md`
+(seeds {0..4}, 200k steps each, verification pre-step re-run per seed).
+
+| seed | acc | address head | payload head | addr score | pay score | circuit |
+|---:|---:|---|---|---:|---:|:---:|
+| 0 | 1.000 | L0H0 | L0H1 | −103.54 | +22.99 | ✅ |
+| 1 | 1.000 | L0H1 | L0H0 | −86.90  | +22.60 | ✅ |
+| 2 | 0.999 | L0H1 | L0H0 | +7.19   | +16.58 | ✅ |
+| 3 | 1.000 | L0H1 | L0H0 | +4.66   | +22.71 | ✅ |
+| 4 | 1.000 | L0H0 | L0H1 | −49.84  | +22.07 | ✅ |
+
+**Reading.** **5 / 5 seeds** reach ≥ 99.9 % clean accuracy and yield a
+clean address/payload factorisation — well above the 3 / 5 acceptance
+criterion. The head *index* is arbitrary across seeds (3 seeds map
+address→H1, 2 map address→H0), but the two-head staged-retrieval
+topology is reproducible. Seeds 2 and 3 have noticeably smaller
+address-swap magnitudes (|7|, |5|) than seeds 0, 1, 4 (|104|, |87|,
+|50|); worth flagging but does not change the binary emergence result.
+
+---
+
+## P3 — position sweep (Q vs target-SEP)
+
+`scripts/run_sae_eval.py --position q` → `experiments/results/sae_eval_q/results.md`.
+Same SAE ckpts, labels, and N=4096 as the SEP run above, but
+activations extracted at the Q token instead of target-fact SEP.
+
+Notable probe-F1 shifts, **raw activations** (macro-F1 on {Eq, Tq, E2q}):
+
+| site | Eq SEP → Q | Tq SEP → Q | E2q SEP → Q |
+|---|:---:|:---:|:---:|
+| `resid_post` (composed) | 0.77 → **0.89** | 1.00 → 1.00 | 0.38 → **0.005** |
+| `hook_z` H0 (address) | 0.43 → **0.52** | 1.00 → 1.00 | 0.00 → 0.00 |
+| `hook_z` H1 (payload) | 0.003 → 0.11 | 0.09 → 1.00 | **0.99 → 0.001** |
+
+**Reading.** Eq lives at Q, E2q lives at SEP — as expected for a
+retrieval circuit: the query entity is read at the Q token, and the
+retrieved tail is assembled at the SEP that terminates the target
+fact. H1 at Q completely *lacks* E2q (0.001) and instead has perfect
+Tq — so "H1 = payload" is a SEP-only role; at Q the same head is
+passing the relation. Patching labels from P0 stand, but they're
+time-resolved: H0 reads Tq throughout, H1 switches from relation
+carrier (at Q) to tail-entity carrier (at SEP).
+
+**SAE-side caveat.** H1 SAEs were trained on SEP-position `hook_z`
+activations, so they do not fit the Q-token distribution:
+reconstruction FVU blows up to 1.2 → 15.7 (vs ~0 at SEP). Q-position
+numbers for H1 therefore reflect out-of-distribution SAE behaviour;
+the SEP result is what matters for H1 claims. H0 and resid_post SAEs
+were also SEP-trained but retain FVU < 0.02 at Q — consistent with
+those sites having more position-invariant structure.
 
 ---
 
@@ -243,43 +299,6 @@ checkpoint saves/loads correctly through the verification path.
 ---
 
 ## What's left to run
-
-### P1 Gemma (requires GPU + ~10 GB disk)
-
-```bash
-pip install sae_lens
-PYTHONPATH=. python scripts/gemma/run_gemma_patching.py --n 200
-PYTHONPATH=. python scripts/gemma/run_gemma_sae.py --n 500
-```
-
-Produces `experiments/results/gemma/{gemma_head_roles.json, summary.json}`.
-Key numbers to report in the paper: `mse_normalized`, `f1_raw − f1_sae`,
-and the identified `(layer, head)` router.
-
-Possible gotchas: if too many prompts fail the single-token filter (tail
-entities split under Gemma's tokenizer), curate `DEFAULT_TAILS` in
-`scripts/gemma/gemma_prompts.py`. If the Gemma Scope variant
-(`width_16k/average_l0_100`) is unavailable at the discovered layer, pass
-`--sae-id layer_L/width_16k/average_l0_XX` with a valid bucket.
-
-### P2 multi-seed sweep (5 × ~2–4 h on a single GPU)
-
-```bash
-PYTHONPATH=. python scripts/seeds/run_seed_sweep.py --seeds 0 1 2 3 4 --steps 200000
-```
-
-Produces `experiments/results/seeds/seed_{0..4}/model.pt` + `roles.json`
-and a summary `experiments/results/seeds/table.md`.
-
-If compute-constrained, the roadmap allows dropping to 3 seeds × 100k steps:
-
-```bash
-PYTHONPATH=. python scripts/seeds/run_seed_sweep.py --seeds 0 1 2 --steps 100000
-```
-
-Acceptance criterion (see `precious-munching-turing.md`): ≥ 3 / 5 seeds
-reach ≥ 95 % clean accuracy and produce clean L0 address/payload
-factorization. The `circuit_emerged` column in `table.md` encodes this.
 
 ### Re-running P0 from scratch (takes < 2 minutes)
 

@@ -145,11 +145,14 @@ def build_model():
     return HookedTransformer(cfg)
 
 
-def load_weights(model, device):
-    repo = "sebastianhoenig/2L2H_Final"
-    fname = "D256_L2_H2_attnOnly1_lr5.0e-04_wd0.01.pt"
-    path = hf_hub_download(repo_id=repo, filename=fname)
-    sd = torch.load(path, map_location=device, weights_only=True)["model"]
+def load_weights(model, device, ckpt_path: str | None = None):
+    if ckpt_path is not None:
+        sd = torch.load(ckpt_path, map_location=device, weights_only=False)["model"]
+    else:
+        repo = "sebastianhoenig/2L2H_Final"
+        fname = "D256_L2_H2_attnOnly1_lr5.0e-04_wd0.01.pt"
+        path = hf_hub_download(repo_id=repo, filename=fname)
+        sd = torch.load(path, map_location=device, weights_only=True)["model"]
     model.load_state_dict(sd)
 
 
@@ -189,6 +192,13 @@ def main():
         type=int,
         default=None,
         help="For blocks.0.attn.hook_z: choose a head (e.g., 0)",
+    )
+    parser.add_argument(
+        "--model-ckpt",
+        type=str,
+        default=None,
+        help="Path to a local LM checkpoint (expects {'model': state_dict}). "
+             "If unset, downloads sebastianhoenig/2L2H_Final.",
     )
     args = parser.parse_args()
 
@@ -242,7 +252,7 @@ def main():
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = build_model().to(device)
-    load_weights(model, device)
+    load_weights(model, device, ckpt_path=args.model_ckpt)
 
     train_stream = TrainStream()
     wrapped = CustomDatasetWrapper(train_stream, batch_size=args.batch_size)
